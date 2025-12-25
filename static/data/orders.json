@@ -1,0 +1,25 @@
+[
+    {
+        "orderId": 1001,
+        "studentId": "S001",
+        "studentName": "John Doe",
+        "items": [
+            {"name": "Cheeseburger", "price": 8.99, "quantity": 1},
+            {"name": "French Fries", "price": 4.99, "quantity": 2}
+        ],
+        "total": 18.97,
+        "status": "pending",
+        "timestamp": "2023-12-22T10:00:00Z"
+    },
+    {
+        "orderId": 1002,
+        "studentId": "S002",
+        "studentName": "Jane Smith",
+        "items": [
+            {"name": "Pepperoni Pizza", "price": 12.99, "quantity": 1}
+        ],
+        "total": 12.99,
+        "status": "preparing",
+        "timestamp": "2023-12-22T11:30:00Z"
+    }
+]

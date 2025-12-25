@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Status - Campus Cafeteria</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-color: #2C3E50;
+            --secondary-color: #E74C3C;
+            --accent-color: #F39C12;
+            --success-color: #27AE60;
+            --bg-light: #ECF0F1;
+            --text-dark: #2C3E50;
+            --text-muted: #7F8C8D;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-light);
+            padding-top: 76px;
+            padding-bottom: 50px;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 15px 0;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color) !important;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .navbar-brand i {
+            color: var(--secondary-color);
+        }
+
+        .nav-link {
+            color: var(--text-dark) !important;
+            font-weight: 500;
+            padding: 8px 15px !important;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--secondary-color) !important;
+        }
+
+        /* Hero Section */
+        .success-hero {
+            background: linear-gradient(135deg, var(--success-color) 0%, #229954 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            animation: scaleIn 0.5s ease;
+        }
+
+        .success-icon i {
+            font-size: 40px;
+            color: var(--success-color);
+        }
+
+        .success-hero h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .success-hero p {
+            font-size: 18px;
+            opacity: 0.95;
+        }
+
+        @keyframes scaleIn {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Order Header */
+        .order-header {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .order-id {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .order-id h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .order-badge {
+            background: var(--accent-color);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .order-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-outline {
+            padding: 10px 20px;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* Status Timeline */
+        .status-timeline {
+            background: white;
+            border-radius: 15px;
+            padding: 35px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        .timeline-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 80px;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-bottom: 40px;
+        }
+
+        .timeline-item:last-child {
+            padding-bottom: 0;
+        }
+
+        .timeline-icon {
+            position: absolute;
+            left: -80px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .timeline-item.completed .timeline-icon {
+            background: var(--success-color);
+            color: white;
+            box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.2);
+        }
+
+        .timeline-item.active .timeline-icon {
+            background: var(--accent-color);
+            color: white;
+            box-shadow: 0 0 0 4px rgba(243, 156, 18, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        .timeline-item.pending .timeline-icon {
+            background: var(--bg-light);
+            color: var(--text-muted);
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 4px rgba(243, 156, 18, 0.2); }
+            50% { box-shadow: 0 0 0 8px rgba(243, 156, 18, 0.4); }
+        }
+
+        .timeline-connector {
+            position: absolute;
+            left: -50px;
+            top: 60px;
+            bottom: -40px;
+            width: 4px;
+            background: var(--bg-light);
+        }
+
+        .timeline-item.completed .timeline-connector {
+            background: var(--success-color);
+        }
+
+        .timeline-item.active .timeline-connector {
+            background: linear-gradient(to bottom, var(--success-color), var(--bg-light));
+        }
+
+        .timeline-item:last-child .timeline-connector {
+            display: none;
+        }
+
+        .timeline-content h4 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        .timeline-content p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .timeline-time {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* Order Details Grid */
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .detail-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        .detail-card h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--bg-light);
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .detail-value {
+            color: var(--text-dark);
+            font-weight: 600;
+            font-size: 14px;
+            text-align: right;
+        }
+
+        /* Order Items */
+        .order-items-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        .items-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid var(--bg-light);
+            transition: background 0.3s ease;
+        }
+
+        .item-row:hover {
+            background: var(--bg-light);
+            border-radius: 8px;
+        }
+
+        .item-row:last-child {
+            border-bottom: none;
+        }
+
+        .item-details {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .item-qty {
+            background: var(--bg-light);
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text-dark);
+        }
+
+        .item-name {
+            font-size: 15px;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        .item-price {
+            font-weight: 700;
+            color: var(--text-dark);
+            font-size: 15px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px 15px 0 15px;
+            margin-top: 15px;
+            border-top: 2px solid var(--bg-light);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        /* Refresh Button */
+        .refresh-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .refresh-btn:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.3);
+        }
+
+        .refresh-btn i.spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Pickup Info Banner */
+        .pickup-banner {
+            background: linear-gradient(135deg, var(--accent-color), #e67e22);
+            color: white;
+            padding: 20px 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .pickup-banner i {
+            font-size: 36px;
+        }
+
+        .pickup-info h4 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .pickup-info p {
+            font-size: 14px;
+            margin: 0;
+            opacity: 0.95;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .order-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .order-actions {
+                width: 100%;
+            }
+
+            .btn-outline {
+                flex: 1;
+            }
+
+            .timeline {
+                padding-left: 60px;
+            }
+
+            .timeline-icon {
+                left: -60px;
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+
+            .timeline-connector {
+                left: -35px;
+            }
+
+            .success-hero h1 {
+                font-size: 24px;
+            }
+
+            .pickup-banner {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <a class="navbar-brand" href="home.html">
+                    <i class="fas fa-utensils"></i> Campus Cafeteria
+                </a>
+                <div class="d-flex gap-3">
+                    <a href="home.html" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                    <a href="profile.html" class="nav-link">
+                        <i class="fas fa-user"></i> Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Success Hero -->
+    <div class="success-hero">
+        <div class="container">
+            <div class="success-icon">
+                <i class="fas fa-check"></i>
+            </div>
+            <h1>Order Placed Successfully!</h1>
+            <p>Your order has been received and is being prepared</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Order Header -->
+        <div class="order-header">
+            <div class="order-id">
+                <h2 id="orderIdDisplay">Order #ORD12345</h2>
+                <span class="order-badge" id="orderStatus">Preparing</span>
+            </div>
+            <div class="order-actions">
+                <button class="btn-outline" onclick="downloadReceipt()">
+                    <i class="fas fa-download"></i> Receipt
+                </button>
+                <button class="btn-outline" onclick="window.location.href='home.html'">
+                    <i class="fas fa-home"></i> New Order
+                </button>
+            </div>
+        </div>
+
+        <!-- Pickup Info Banner -->
+        <div class="pickup-banner">
+            <i class="fas fa-clock"></i>
+            <div class="pickup-info">
+                <h4>Estimated Pickup Time</h4>
+                <p id="pickupTimeDisplay">Today at 12:30 PM</p>
+            </div>
+        </div>
+
+        <!-- Status Timeline -->
+        <div class="status-timeline">
+            <h3 class="timeline-title">Order Progress</h3>
+            <div class="timeline">
+                <div class="timeline-item completed">
+                    <div class="timeline-icon">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-content">
+                        <h4>Order Received</h4>
+                        <p>Your order has been confirmed</p>
+                        <span class="timeline-time" id="receivedTime">12:25 PM</span>
+                    </div>
+                </div>
+
+                <div class="timeline-item active">
+                    <div class="timeline-icon">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-content">
+                        <h4>Preparing</h4>
+                        <p>Our chefs are preparing your order</p>
+                        <span class="timeline-time">In Progress...</span>
+                    </div>
+                </div>
+
+                <div class="timeline-item pending">
+                    <div class="timeline-icon">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-content">
+                        <h4>Ready for Pickup</h4>
+                        <p>Your order is ready to collect</p>
+                        <span class="timeline-time">Pending</span>
+                    </div>
+                </div>
+
+                <div class="timeline-item pending">
+                    <div class="timeline-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="timeline-content">
+                        <h4>Completed</h4>
+                        <p>Order picked up successfully</p>
+                        <span class="timeline-time">Pending</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="details-grid">
+            <!-- Customer Details -->
+            <div class="detail-card">
+                <h3><i class="fas fa-user"></i> Customer Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Name</span>
+                    <span class="detail-value" id="customerName">John Doe</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Student ID</span>
+                    <span class="detail-value" id="studentId">STU001</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Phone</span>
+                    <span class="detail-value" id="phoneNumber">+91 9876543210</span>
+                </div>
+            </div>
+
+            <!-- Payment Details -->
+            <div class="detail-card">
+                <h3><i class="fas fa-wallet"></i> Payment Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Method</span>
+                    <span class="detail-value" id="paymentMethod">Cash on Pickup</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Status</span>
+                    <span class="detail-value" style="color: var(--accent-color);">Pending</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Amount</span>
+                    <span class="detail-value" id="totalAmount">₹525</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Items -->
+        <div class="order-items-card">
+            <h3 class="items-title"><i class="fas fa-receipt"></i> Order Items</h3>
+            <div id="orderItemsList">
+                <!-- Items will be loaded here -->
+            </div>
+            <div class="total-row">
+                <span>Total Amount</span>
+                <span id="grandTotal">₹525</span>
+            </div>
+        </div>
+
+        <!-- Refresh Status Button -->
+        <button class="refresh-btn" onclick="refreshStatus()">
+            <i class="fas fa-sync-alt"></i> Refresh Status
+        </button>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Load order from localStorage
+        let currentOrder = JSON.parse(localStorage.getItem('currentOrder'));
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!currentOrder) {
+                // No order found, redirect to home
+                showToast('No active order found', 'error');
+                setTimeout(() => {
+                    window.location.href = 'home.html';
+                }, 2000);
+                return;
+            }
+
+            loadOrderDetails();
+            
+            // Simulate status updates (for demo)
+            simulateStatusUpdates();
+        });
+
+        // Load order details
+        function loadOrderDetails() {
+            // Order ID and Status
+            document.getElementById('orderIdDisplay').textContent = `Order #${currentOrder.orderId}`;
+            document.getElementById('orderStatus').textContent = currentOrder.status;
+
+            // Pickup Time
+            document.getElementById('pickupTimeDisplay').textContent = `Today at ${currentOrder.pickupTime}`;
+
+            // Customer Details
+            document.getElementById('customerName').textContent = currentOrder.fullName;
+            document.getElementById('studentId').textContent = currentOrder.studentId;
+            document.getElementById('phoneNumber').textContent = currentOrder.phoneNumber;
+
+            // Payment Details
+            const paymentMethods = {
+                'cash': 'Cash on Pickup',
+                'card': 'Debit/Credit Card',
+                'upi': 'UPI Payment'
+            };
+            document.getElementById('paymentMethod').textContent = paymentMethods[currentOrder.paymentMethod] || 'Cash on Pickup';
+            document.getElementById('totalAmount').textContent = `₹${currentOrder.total}`;
+            document.getElementById('grandTotal').textContent = `₹${currentOrder.total}`;
+
+            // Order Items
+            const itemsList = document.getElementById('orderItemsList');
+            itemsList.innerHTML = currentOrder.items.map(item => `
+                <div class="item-row">
+                    <div class="item-details">
+                        <span class="item-qty">${item.quantity}x</span>
+                        <span class="item-name">${item.name}</span>
+                    </div>
+                    <span class="item-price">₹${item.price * item.quantity}</span>
+                </div>
+            `).join('');
+
+            // Received Time
+            const orderTime = new Date(currentOrder.timestamp);
+            document.getElementById('receivedTime').textContent = orderTime.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        // Simulate status updates (for demo purposes)
+        function simulateStatusUpdates() {
+            // After 10 seconds, move to "Ready"
+            setTimeout(() => {
+                updateOrderStatus('Ready');
+            }, 10000);
+
+            // After 20 seconds, move to "Completed"
+            setTimeout(() => {
+                updateOrderStatus('Completed');
+            }, 20000);
+        }
+
+        // Update order status
+        function updateOrderStatus(newStatus) {
+            currentOrder.status = newStatus;
+            localStorage.setItem('currentOrder', JSON.stringify(currentOrder));
+
+            const statusMap = {
+                'Received': { step: 0, badge: 'Received' },
+                'Preparing': { step: 1, badge: 'Preparing' },
+                'Ready': { step: 2, badge: 'Ready for Pickup' },
+                'Completed': { step: 3, badge: 'Completed' }
+            };
+
+            const status = statusMap[newStatus];
+            if (!status) return;
+
+            // Update badge
+            document.getElementById('orderStatus').textContent = status.badge;
+
+            // Update timeline
+            const items = document.querySelectorAll('.timeline-item');
+            items.forEach((item, index) => {
+                item.classList.remove('completed', 'active', 'pending');
+                
+                if (index < status.step) {
+                    item.classList.add('completed');
+                } else if (index === status.step) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.add('pending');
+                }
+            });
+
+            // Show notification
+            if (newStatus === 'Ready') {
+                showToast('Your order is ready for pickup!', 'success');
+            } else if (newStatus === 'Completed') {
+                showToast('Order completed. Thank you!', 'success');
+            }
+        }
+
+        // Refresh status
+        function refreshStatus() {
+            const btn = event.target.closest('.refresh-btn');
+            const icon = btn.querySelector('i');
+            
+            // Add spinning animation
+            icon.classList.add('spinning');
+            btn.disabled = true;
+
+            // Simulate refresh
+            setTimeout(() => {
+                icon.classList.remove('spinning');
+                btn.disabled = false;
+                showToast('Status refreshed', 'success');
+            }, 1500);
+        }
+
+        // Download receipt
+        function downloadReceipt() {
+            showToast('Receipt download feature coming soon!', 'success');
+            
+            // In a real app, you would generate a PDF here
+            console.log('Receipt data:', currentOrder);
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const bgColor = type === 'success' ? 'var(--success-color)' : 'var(--secondary-color)';
+            
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 100px;
+                right: 20px;
+                background: ${bgColor};
+                color: white;
+                padding: 15px 25px;
+                border-radius: 8px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                z-index: 9999;
+                animation: slideIn 0.3s ease;
+            `;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Add animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(400px); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(400px); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

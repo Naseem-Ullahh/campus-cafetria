@@ -1,0 +1,42 @@
+<script>
+    function loadReceipt() {
+        const order = JSON.parse(localStorage.getItem("latestOrder"));
+
+        if (!order) {
+            alert("No order found!");
+            window.location.href = "home.html";
+            return;
+        }
+
+        document.getElementById("orderId").innerText = order.orderId;
+        document.getElementById("orderDate").innerText = order.date;
+
+        const tbody = document.getElementById("receiptItems");
+        let total = 0;
+
+        order.items.forEach(item => {
+            const itemTotal = item.price * item.quantity;
+            total += itemTotal;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>Rs. ${item.price}</td>
+                    <td>Rs. ${itemTotal}</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById("grandTotal").innerText = "Rs. " + total;
+
+        // Clear cart after order
+        localStorage.removeItem("cart");
+    }
+
+    function goHome() {
+        window.location.href = "home.html";
+    }
+
+    loadReceipt();
+</script>

@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Campus Cafeteria</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+        }
+
+        /* Navbar */
+        .student-navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            text-decoration: none;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .navbar-brand i {
+            font-size: 30px;
+        }
+
+        .navbar-menu {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .navbar-menu a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 8px 0;
+        }
+
+        .navbar-menu a:hover {
+            opacity: 0.8;
+        }
+
+        .cart-btn {
+            position: relative;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+        }
+
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .user-profile-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+
+        .user-avatar-nav {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        /* Profile Container */
+        .profile-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        /* Profile Header Card */
+        .profile-header {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            padding: 40px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 150px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 0;
+        }
+
+        .profile-header-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .profile-avatar-container {
+            position: relative;
+        }
+
+        .profile-avatar {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 5px solid white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            object-fit: cover;
+            background: white;
+        }
+
+        .avatar-edit-btn {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #4CAF50;
+            color: white;
+            border: 3px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .avatar-edit-btn:hover {
+            background: #45a049;
+            transform: scale(1.1);
+        }
+
+        .profile-info {
+            flex: 1;
+            color: white;
+        }
+
+        .profile-info h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .profile-meta {
+            display: flex;
+            gap: 30px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+        }
+
+        .meta-item i {
+            font-size: 18px;
+        }
+
+        /* Statistics Cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: white;
+        }
+
+        .stat-icon.orders { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .stat-icon.spent { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); }
+        .stat-icon.favorite { background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); }
+        .stat-icon.points { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+
+        .stat-details h3 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .stat-details p {
+            margin: 5px 0 0 0;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        /* Tabs */
+        .profile-tabs {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 15px 30px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            color: #667eea;
+        }
+
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Content Cards */
+        .content-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        .content-card h3 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        /* Edit Profile Form */
+        .edit-form .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #666;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        /* Order History */
+        .order-card {
+            border: 2px solid #f0f0f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .order-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .order-id {
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .order-status {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-preparing { background: #fff3cd; color: #856404; }
+        .status-pending { background: #d1ecf1; color: #0c5460; }
+        .status-cancelled { background: #f8d7da; color: #721c24; }
+
+        .order-items {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 14px;
+        }
+
+        .order-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .order-total {
+            font-size: 18px;
+            font-weight: 700;
+            color: #4CAF50;
+        }
+
+        .order-date {
+            font-size: 13px;
+            color: #999;
+        }
+
+        .btn-reorder {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-reorder:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+
+        /* Logout Button */
+        .logout-section {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .btn-logout {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-logout:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state i {
+            font-size: 60px;
+            color: #ddd;
+            margin-bottom: 15px;
+        }
+
+        .empty-state h4 {
+            color: #999;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: #bbb;
+        }
+
+        /* Toast Notification */
+        .toast-notification {
+            position: fixed;
+            top: 80px;
+            right: 30px;
+            background: white;
+            padding: 20px 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 9999;
+            animation: slideInRight 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast-notification.success {
+            border-left: 4px solid #4CAF50;
+        }
+
+        .toast-notification i {
+            font-size: 24px;
+            color: #4CAF50;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .profile-header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .profile-meta {
+                justify-content: center;
+            }
+
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-tabs {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+            }
+
+            .tab-btn {
+                white-space: nowrap;
+            }
+
+            .navbar-menu a span {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+    <!-- Navbar -->
+    <nav class="student-navbar">
+        <div class="navbar-content">
+            <a href="home.html" class="navbar-brand">
+                <i class="fas fa-utensils"></i>
+                <span>Campus Cafeteria</span>
+            </a>
+            <div class="navbar-menu">
+                <a href="home.html"><i class="fas fa-home"></i> <span>Home</span></a>
+                <a href="order-status.html"><i class="fas fa-receipt"></i> <span>My Orders</span></a>
+                <a href="cart.html" class="cart-btn">
+                    <i class="fas fa-shopping-cart"></i> <span>Cart</span>
+                    <span class="cart-badge" id="cartCount">0</span>
+                </a>
+                <div class="user-profile-nav">
+                    <img src="" alt="User" class="user-avatar-nav" id="navAvatar">
+                    <span id="navUserName">Student</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Profile Container -->
+    <div class="profile-container">
+        <!-- Profile Header -->
+        <div class="profile-header">
+            <div class="profile-header-content">
+                <div class="profile-avatar-container">
+                    <img src="" alt="Profile" class="profile-avatar" id="profileAvatar">
+                    <div class="avatar-edit-btn" onclick="changeAvatar()">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                </div>
+                <div class="profile-info">
+                    <h1 id="profileName">Student Name</h1>
+                    <div class="profile-meta">
+                        <div class="meta-item">
+                            <i class="fas fa-id-card"></i>
+                            <span id="profileStudentId">STU12345</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-envelope"></i>
+                            <span id="profileEmail">student@university.edu</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-phone"></i>
+                            <span id="profilePhone">+92 3XX XXXXXXX</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-building"></i>
+                            <span id="profileDepartment">Computer Science</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon orders">
+                    <i class="fas fa-shopping-bag"></i>
+                </div>
+                <div class="stat-details">
+                    <h3 id="totalOrders">0</h3>
+                    <p>Total Orders</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon spent">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                <div class="stat-details">
+                    <h3 id="totalSpent">PKR 0</h3>
+                    <p>Total Spent</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon favorite">
+                    <i class="fas fa-heart"></i>
+                </div>
+                <div class="stat-details">
+                    <h3 id="favoriteItem">Burger</h3>
+                    <p>Favorite Item</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon points">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div class="stat-details">
+                    <h3 id="rewardPoints">0</h3>
+                    <p>Reward Points</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="profile-tabs">
+            <button class="tab-btn active" onclick="switchTab('orders')">
+                <i class="fas fa-receipt"></i> Order History
+            </button>
+            <button class="tab-btn" onclick="switchTab('edit')">
+                <i class="fas fa-user-edit"></i> Edit Profile
+            </button>
+            <button class="tab-btn" onclick="switchTab('settings')">
+                <i class="fas fa-cog"></i> Settings
+            </button>
+        </div>
+
+        <!-- Tab Contents -->
+        
+        <!-- Order History Tab -->
+        <div id="ordersTab" class="tab-content active">
+            <div class="content-card">
+                <h3><i class="fas fa-history"></i> Your Order History</h3>
+                <div id="orderHistoryContainer">
+                    <!-- Orders will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Profile Tab -->
+        <div id="editTab" class="tab-content">
+            <div class="content-card">
+                <h3><i class="fas fa-user-edit"></i> Edit Your Profile</h3>
+                <form class="edit-form" onsubmit="updateProfile(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="editName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Student ID</label>
+                            <input type="text" id="editStudentId" disabled>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="editEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number</label>
+                            <input type="tel" id="editPhone" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Department</label>
+                            <select id="editDepartment" required>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Engineering">Engineering</option>
+                                <option value="Business">Business Administration</option>
+                                <option value="Medicine">Medicine</option>
+                                <option value="Arts">Arts & Humanities</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Hostel/Address</label>
+                            <input type="text" id="editAddress" placeholder="Room 205, Boys Hostel">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="cancelEdit()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settingsTab" class="tab-content">
+            <div class="content-card">
+                <h3><i class="fas fa-cog"></i> Account Settings</h3>
+                <div class="form-group">
+                    <label>Change Password</label>
+                    <input type="password" placeholder="Current Password">
+                </div>
+                <div class="form-group">
+                    <input type="password" placeholder="New Password">
+                </div>
+                <div class="form-group">
+                    <input type="password" placeholder="Confirm New Password">
+                </div>
+                <button class="btn-primary" onclick="changePassword()">
+                    <i class="fas fa-key"></i> Update Password
+                </button>
+            </div>
+
+            <div class="content-card" style="margin-top: 20px;">
+                <h3><i class="fas fa-bell"></i> Notifications</h3>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" checked> Email notifications for orders
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" checked> SMS notifications
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox"> Promotional offers
+                    </label>
+                </div>
+                <button class="btn-primary">
+                    <i class="fas fa-save"></i> Save Preferences
+                </button>
+            </div>
+
+            <div class="logout-section">
+                <button class="btn-logout" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            checkAuth();
+            loadProfileData();
+            loadOrderHistory();
+            updateCartBadge();
+            calculateStats();
+        });
+
+        // Check authentication
+        function checkAuth() {
+            const currentUser = localStorage.getItem('currentUser');
+            if (!currentUser) {
+                window.location.href = 'login.html';
+                return;
+            }
+        }
+
+        // Load profile data
+        function loadProfileData() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.studentId === currentUser.studentId) || currentUser;
+
+            // Set avatar
+            const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=667eea&color=fff&size=150`;
+            $('#profileAvatar').attr('src', avatarUrl);
+            $('#navAvatar').attr('src', avatarUrl);
+
+            // Set profile info
+            $('#profileName').text(user.name);
+            $('#navUserName').text(user.name.split(' ')[0]);
+            $('#profileStudentId').text(user.studentId);
+            $('#profileEmail').text(user.email);
+            $('#profilePhone').text(user.phone || '+92 3XX XXXXXXX');
+            $('#profileDepartment').text(user.department || 'Computer Science');
+
+            // Set edit form values
+            $('#editName').val(user.name);
+            $('#editStudentId').val(user.studentId);
+            $('#editEmail').val(user.email);
+            $('#editPhone').val(user.phone || '');
+            $('#editDepartment').val(user.department || 'Computer Science');
+            $('#editAddress').val(user.address || '');
+        }
+
+        // Calculate statistics
+        function calculateStats() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            const userOrders = orders.filter(o => o.studentId === currentUser.studentId);
+
+            // Total orders
+            $('#totalOrders').text(userOrders.length);
+
+            // Total spent
+            const totalSpent = userOrders
+                .filter(o => o.status === 'completed')
+                .reduce((sum, o) => sum + o.totalAmount, 0);
+            $('#totalSpent').text('PKR ' + totalSpent.toLocaleString());
+
+            // Favorite item (most ordered)
+            const itemCount = {};
+            userOrders.forEach(order => {
+                order.items.forEach(item => {
+                    itemCount[item.name] = (itemCount[item.name] || 0) + item.quantity;
+                });
+            });
+            const favoriteItem = Object.keys(itemCount).reduce((a, b) => 
+                itemCount[a] > itemCount[b] ? a : b, 'Burger'
+            );
+            $('#favoriteItem').text(favoriteItem);
+
+            // Reward points (10 points per 100 PKR spent)
+            const points = Math.floor(totalSpent / 100) * 10;
+            $('#rewardPoints').text(points);
+        }
+
+        // Load order history
+        function loadOrderHistory() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            const userOrders = orders.filter(o => o.studentId === currentUser.studentId);
+
+            const container = $('#orderHistoryContainer');
+            container.empty();
+
+            if (userOrders.length === 0) {
+                container.html(`
+                    <div class="empty-state">
+                        <i class="fas fa-receipt"></i>
+                        <h4>No Orders Yet</h4>
+                        <p>Start ordering delicious food from our menu!</p>
+                        <button class="btn-primary" onclick="window.location.href='home.html'" style="margin-top: 15px;">
+                            <i class="fas fa-utensils"></i> Browse Menu
+                        </button>
+                    </div>
+                `);
+            }
+        }
+    </script>

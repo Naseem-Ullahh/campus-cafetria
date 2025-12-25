@@ -1,0 +1,29 @@
+[
+    {
+        "id": 1,
+        "name": "Cheeseburger",
+        "category": "main",
+        "price": 8.99,
+        "stock": 50,
+        "image": "../assets/images/food/burger.jpg",
+        "available": true
+    },
+    {
+        "id": 2,
+        "name": "Pepperoni Pizza",
+        "category": "main",
+        "price": 12.99,
+        "stock": 30,
+        "image": "../assets/images/food/pizza.jpg",
+        "available": true
+    },
+    {
+        "id": 3,
+        "name": "French Fries",
+        "category": "snack",
+        "price": 4.99,
+        "stock": 100,
+        "image": "../assets/images/food/fries.jpg",
+        "available": false
+    }
+]

@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports & Analytics - Campus Cafeteria Admin</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .admin-body {
+            display: flex;
+            background: #f0f2f5;
+        }
+
+        /* Sidebar Styles */
+        .admin-sidebar {
+            width: 260px;
+            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 25px 20px;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-header i {
+            font-size: 28px;
+            color: #4CAF50;
+        }
+
+        .sidebar-header h4 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 20px 0;
+        }
+
+        .sidebar-menu li {
+            margin: 5px 0;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 15px 25px;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            gap: 12px;
+            font-size: 15px;
+        }
+
+        .sidebar-menu a i {
+            font-size: 18px;
+            width: 20px;
+        }
+
+        .sidebar-menu a:hover {
+            background: rgba(255,255,255,0.1);
+            padding-left: 30px;
+        }
+
+        .sidebar-menu li.active a {
+            background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
+            border-left: 4px solid #fff;
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            color: #e74c3c !important;
+        }
+
+        /* Main Content Area */
+        .admin-content {
+            margin-left: 260px;
+            width: calc(100% - 260px);
+            min-height: 100vh;
+        }
+
+        /* Top Bar */
+        .admin-topbar {
+            background: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-left h2 {
+            font-size: 24px;
+            color: #2c3e50;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .mobile-menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #2c3e50;
+            cursor: pointer;
+            margin-right: 15px;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .admin-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .admin-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #4CAF50;
+        }
+
+        /* Page Content */
+        .page-content {
+            padding: 30px;
+        }
+
+        /* Date Range Filter */
+        .date-filter-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .date-inputs {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .date-inputs label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .date-inputs input {
+            padding: 8px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .filter-actions button {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-apply {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            margin-right: 10px;
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: white;
+        }
+
+        .btn-apply:hover, .btn-export:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* Statistics Cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+
+        .stat-card:nth-child(1) { border-left-color: #4CAF50; }
+        .stat-card:nth-child(2) { border-left-color: #2196F3; }
+        .stat-card:nth-child(3) { border-left-color: #FF9800; }
+        .stat-card:nth-child(4) { border-left-color: #9C27B0; }
+
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: white;
+        }
+
+        .stat-icon.bg-success { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); }
+        .stat-icon.bg-info { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); }
+        .stat-icon.bg-warning { background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); }
+        .stat-icon.bg-purple { background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%); }
+
+        .stat-details h3 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .stat-details p {
+            margin: 5px 0 0 0;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .stat-change {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+            display: inline-block;
+        }
+
+        .stat-change.positive {
+            background: #e8f5e9;
+            color: #4CAF50;
+        }
+
+        .stat-change.negative {
+            background: #ffebee;
+            color: #f44336;
+        }
+
+        /* Chart Cards */
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 25px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+
+        .chart-header h5 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+        }
+
+        /* Tables */
+        .report-table {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .report-table h5 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+
+        .table {
+            margin: 0;
+        }
+
+        .table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .table thead th {
+            border: none;
+            padding: 15px;
+            font-weight: 600;
+        }
+
+        .table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        .table tbody tr:hover {
+            background: #f8f9fa;
+            transform: scale(1.01);
+        }
+
+        .table td {
+            padding: 15px;
+            vertical-align: middle;
+        }
+
+        .item-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .rank-1 { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: white; }
+        .rank-2 { background: linear-gradient(135deg, #C0C0C0 0%, #808080 100%); color: white; }
+        .rank-3 { background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%); color: white; }
+        .rank-other { background: #e0e0e0; color: #666; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .admin-sidebar {
+                transform: translateX(-100%);
+            }
+
+            .admin-sidebar.show {
+                transform: translateX(0);
+            }
+
+            .admin-content {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .mobile-menu-toggle {
+                display: block;
+            }
+
+            .date-filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .date-inputs {
+                flex-direction: column;
+            }
+
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body class="admin-body">
+    
+    <!-- Admin Sidebar -->
+    <div class="admin-sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-utensils"></i>
+            <h4>Campus Cafeteria</h4>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+            <li><a href="menu-management.html"><i class="fas fa-pizza-slice"></i> Menu Management</a></li>
+            <li><a href="orders-management.html"><i class="fas fa-shopping-bag"></i> Orders</a></li>
+            <li class="active"><a href="reports.html"><i class="fas fa-chart-bar"></i> Reports</a></li>
+            <li><a href="login.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <!-- Top Bar -->
+        <div class="admin-topbar">
+            <div class="topbar-left">
+                <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h2><i class="fas fa-chart-bar"></i> Reports & Analytics</h2>
+            </div>
+            <div class="topbar-right">
+                <div class="admin-profile">
+                    <img src="https://ui-avatars.com/api/?name=Admin&background=4CAF50&color=fff" alt="Admin" class="admin-avatar">
+                    <span>Admin User</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page Content -->
+        <div class="page-content">
+            <!-- Date Range Filter -->
+            <div class="date-filter-bar">
+                <div class="date-inputs">
+                    <label>From:</label>
+                    <input type="date" id="startDate" class="form-control">
+                    <label>To:</label>
+                    <input type="date" id="endDate" class="form-control">
+                </div>
+                <div class="filter-actions">
+                    <button class="btn-apply" onclick="applyDateFilter()">
+                        <i class="fas fa-filter"></i> Apply Filter
+                    </button>
+                    <button class="btn-export" onclick="exportReport()">
+                        <i class="fas fa-download"></i> Export PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon bg-success">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3 id="totalRevenue">PKR 0</h3>
+                        <p>Total Revenue</p>
+                        <span class="stat-change positive" id="revenueChange">↑ 12.5%</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon bg-info">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3 id="totalOrders">0</h3>
+                        <p>Total Orders</p>
+                        <span class="stat-change positive" id="ordersChange">↑ 8.3%</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon bg-warning">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3 id="avgOrder">PKR 0</h3>
+                        <p>Average Order Value</p>
+                        <span class="stat-change positive" id="avgChange">↑ 5.2%</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon bg-purple">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3 id="totalCustomers">0</h3>
+                        <p>Unique Customers</p>
+                        <span class="stat-change positive" id="customersChange">↑ 15.7%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h5><i class="fas fa-chart-area"></i> Revenue Trend</h5>
+                            <select id="revenueChartPeriod" class="form-select" style="width: auto;" onchange="updateRevenueChart()">
+                                <option value="7">Last 7 Days</option>
+                                <option value="30" selected>Last 30 Days</option>
+                                <option value="90">Last 90 Days</option>
+                            </select>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h5><i class="fas fa-chart-pie"></i> Category Distribution</h5>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Popular Items Table -->
+            <div class="report-table">
+                <h5><i class="fas fa-fire"></i> Top 10 Popular Items</h5>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Item Name</th>
+                                <th>Category</th>
+                                <th>Orders</th>
+                                <th>Revenue</th>
+                                <th>Avg Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody id="popularItemsBody">
+                            <!-- Data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Initialize
+        $(document).ready(function() {
+            initializeDates();
+            loadReportData();
+            initializeCharts();
+            
+            // Mobile menu toggle
+            $('#mobileMenuToggle').click(function() {
+                $('.admin-sidebar').toggleClass('show');
+            });
+        });
+
+        // Set default dates (last 30 days)
+        function initializeDates() {
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+            
+            $('#endDate').val(today.toISOString().split('T')[0]);
+            $('#startDate').val(thirtyDaysAgo.toISOString().split('T')[0]);
+        }
+
+        // Load report data
+        function loadReportData() {
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            
+            // Calculate statistics
+            const totalRevenue = orders.reduce((sum, order) => {
+                if (order.status === 'completed') {
+                    return sum + order.totalAmount;
+                }
+                return sum;
+            }, 0);
+            
+            const completedOrders = orders.filter(o => o.status === 'completed').length;
+            const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
+            const uniqueCustomers = new Set(orders.map(o => o.studentId)).size;
+            
+            // Update statistics
+            $('#totalRevenue').text('PKR ' + totalRevenue.toLocaleString());
+            $('#totalOrders').text(completedOrders);
+            $('#avgOrder').text('PKR ' + Math.round(avgOrderValue));
+            $('#totalCustomers').text(uniqueCustomers);
+            
+            // Load popular items
+            loadPopularItems(orders);
+        }
+
+        // Load popular items
+        function loadPopularItems(orders) {
+            const itemStats = {};
+            
+            orders.forEach(order => {
+                if (order.status === 'completed') {
+                    order.items.forEach(item => {
+                        if (!itemStats[item.name]) {
+                            itemStats[item.name] = {
+                                name: item.name,
+                                category: 'Lunch', // Default
+                                orders: 0,
+                                revenue: 0,
+                                rating: 4.5 // Mock rating
+                            };
+                        }
+                        itemStats[item.name].orders += item.quantity;
+                        itemStats[item.name].revenue += item.price * item.quantity;
+                    });
+                }
+            });
+            
+            // Convert to array and sort by orders
+            const sortedItems = Object.values(itemStats)
+                .sort((a, b) => b.orders - a.orders)
+                .slice(0, 10);
+            
+            // Render table
+            const tbody = $('#popularItemsBody');
+            tbody.empty();
+            
+            sortedItems.forEach((item, index) => {
+                const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : 'rank-other';
+                const stars = '⭐'.repeat(Math.floor(item.rating));
+                
+                tbody.append(`
+                    <tr>
+                        <td><span class="rank-badge ${rankClass}">${index + 1}</span></td>
+                        <td><strong>${item.name}</strong></td>
+                        <td><span class="item-badge">${item.category}</span></td>
+                        <td><strong>${item.orders}</strong> orders</td>
+                        <td><strong>PKR ${item.revenue.toLocaleString()}</strong></td>
+                        <td>${stars} ${item.rating}</td>
+                    </tr>
+                `);
+            });
+        }
+
+        // Initialize Charts
+        let revenueChart, categoryChart;
+
+        function initializeCharts() {
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            revenueChart = new Chart(revenueCtx, {
+                type: 'line',
+                data: {
+                    labels: getLast30Days(),
+                    datasets: [{
+                        label: 'Revenue (PKR)',
+                        data: generateRevenueData(),
+                        borderColor: 'rgb(76, 175, 80)',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: 'rgb(76, 175, 80)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'PKR ' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Category Chart
+            const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+            categoryChart = new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Breakfast', 'Lunch', 'Dinner', 'Beverages', 'Snacks'],
+                    datasets: [{
+                        data: [15, 35, 25, 15, 10],
+                        backgroundColor: [
+                            'rgba(255, 193, 7, 0.8)',
+                            'rgba(76, 175, 80, 0.8)',
+                            'rgba(33, 150, 243, 0.8)',
+                            'rgba(156, 39, 176, 0.8)',
+                            'rgba(255, 87, 34, 0.8)'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Get last 30 days labels
+        function getLast30Days() {
+            const days = [];
+            for (let i = 29; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                days.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+            }
+            return days;
+        }
+
+        // Generate mock revenue data
+        function generateRevenueData() {
+            const data = [];
+            for (let i = 0; i < 30; i++) {
+                data.push(Math.floor(Math.random() * 5000) + 2000);
+            }
+            return data;
+        }
+
+        // Update revenue chart
+        function updateRevenueChart() {
+            const period = $('#revenueChartPeriod').val();
+            // Update chart with new period data
+            showToast('Chart updated for ' + period + ' days', 'success');
+        }
+
+        // Apply date filter
+        function applyDateFilter() {
+            const startDate = $('#startDate').val();
+            const endDate = $('#endDate').val();
+            
+            if (!startDate || !endDate) {
+                showToast('Please select both start and end dates', 'error');
+                return;
+            }
+            
+            showToast('Filter applied successfully!', 'success');
+            loadReportData();
+        }
+
+        // Export report
+        function exportReport() {
+            showToast('Exporting report as PDF...', 'info');
+            setTimeout(() => {
+                showToast('Report exported successfully!', 'success');
+            }, 1500);
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const bgColor = type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8';
+            
+            const toast = $(`
+                <div style="position: fixed; top: 80px; right: 20px; background: ${bgColor}; color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 9999; display: flex; align-items: center; gap: 10px; animation: slideIn 0.3s ease;">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                    <span>${message}</span>
+                </div>
+            `);
+            
+            $('body').append(toast);
+            
+            setTimeout(() => {
+                toast.fadeOut(300, function() {
+                    $(this).remove();
+                });
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
