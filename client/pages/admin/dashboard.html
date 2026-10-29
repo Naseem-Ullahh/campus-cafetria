@@ -29,48 +29,48 @@
 
             <nav class="sidebar-menu">
                 <div class="menu-section">
-                    <div class="menu-label">Main</div>
+                    <div class="menu-label">Today</div>
                     <a href="dashboard.html" class="menu-item active">
                         <i class="fas fa-home"></i>
                         <span>Dashboard</span>
                     </a>
+                    <a href="incoming.html" class="menu-item">
+                        <i class="fas fa-inbox"></i>
+                        <span>Incoming orders</span>
+                    </a>
+                    <a href="kitchen.html" class="menu-item">
+                        <i class="fas fa-fire"></i>
+                        <span>Kitchen</span>
+                    </a>
+                    <a href="counter.html" class="menu-item">
+                        <i class="fas fa-cash-register"></i>
+                        <span>Pickup counter</span>
+                    </a>
+                </div>
+
+                <div class="menu-section">
+                    <div class="menu-label">Manage</div>
                     <a href="menu-management.html" class="menu-item">
                         <i class="fas fa-utensils"></i>
-                        <span>Menu Management</span>
+                        <span>Menu</span>
                     </a>
                     <a href="orders-management.html" class="menu-item">
                         <i class="fas fa-shopping-bag"></i>
-                        <span>Orders</span>
+                        <span>All orders</span>
                     </a>
-                </div>
-
-                <div class="menu-section">
-                    <div class="menu-label">Analytics</div>
                     <a href="reports.html" class="menu-item">
                         <i class="fas fa-chart-line"></i>
                         <span>Reports</span>
-                    </a>
-                    <a href="#" class="menu-item">
-                        <i class="fas fa-users"></i>
-                        <span>Customers</span>
-                    </a>
-                </div>
-
-                <div class="menu-section">
-                    <div class="menu-label">Settings</div>
-                    <a href="#" class="menu-item">
-                        <i class="fas fa-cog"></i>
-                        <span>Settings</span>
                     </a>
                 </div>
             </nav>
 
             <div class="sidebar-footer">
                 <div class="admin-profile">
-                    <div class="admin-avatar">A</div>
+                    <div class="admin-avatar" id="adminInitial">&nbsp;</div>
                     <div class="admin-info">
-                        <h4>Admin User</h4>
-                        <p>Administrator</p>
+                        <h4 id="adminName">&nbsp;</h4>
+                        <p>Manager</p>
                     </div>
                 </div>
             </div>
@@ -87,11 +87,11 @@
                     <h1 class="page-title">Dashboard</h1>
                 </div>
                 <div class="top-actions">
-                    <button class="btn-icon" title="Notifications">
+                    <a class="btn-icon" href="incoming.html" title="Orders waiting for review" aria-label="Orders waiting for review">
                         <i class="fas fa-bell"></i>
-                        <span class="notification-badge">3</span>
-                    </button>
-                    <button class="btn-logout" onclick="logout()">
+                        <span class="notification-badge" id="reviewBadge" hidden></span>
+                    </a>
+                    <button class="btn-logout" onclick="confirmLogout()">
                         <i class="fas fa-sign-out-alt"></i>
                         Logout
                     </button>
@@ -130,8 +130,8 @@
                         </div>
                         <div class="stat-info">
                             <h3 id="pendingOrders">0</h3>
-                            <p>Pending Orders</p>
-                            <div class="stat-trend">Received or preparing</div>
+                            <p>Orders in progress</p>
+                            <div class="stat-trend" id="pendingTrend"></div>
                         </div>
                     </div>
 
@@ -196,23 +196,23 @@
                         </div>
 
                         <div class="quick-actions">
-                            <a href="menu-management.html" class="action-btn">
+                            <a href="incoming.html" class="action-btn">
                                 <div class="action-icon">
-                                    <i class="fas fa-plus"></i>
+                                    <i class="fas fa-inbox"></i>
                                 </div>
                                 <div class="action-text">
-                                    <h4>Add Menu Item</h4>
-                                    <p>Add new food item to menu</p>
+                                    <h4>Review new orders</h4>
+                                    <p>Accept or reject incoming orders</p>
                                 </div>
                             </a>
 
-                            <a href="orders-management.html" class="action-btn">
+                            <a href="kitchen.html" class="action-btn">
                                 <div class="action-icon">
-                                    <i class="fas fa-list"></i>
+                                    <i class="fas fa-fire"></i>
                                 </div>
                                 <div class="action-text">
-                                    <h4>View Orders</h4>
-                                    <p>Manage all orders</p>
+                                    <h4>Kitchen display</h4>
+                                    <p>What the chef is cooking</p>
                                 </div>
                             </a>
 
@@ -226,13 +226,13 @@
                                 </div>
                             </a>
 
-                            <a href="reports.html" class="action-btn">
+                            <a href="menu-management.html" class="action-btn">
                                 <div class="action-icon">
-                                    <i class="fas fa-download"></i>
+                                    <i class="fas fa-plus"></i>
                                 </div>
                                 <div class="action-text">
-                                    <h4>Export Data</h4>
-                                    <p>Download reports</p>
+                                    <h4>Menu &amp; stock</h4>
+                                    <p>Add items, update stock</p>
                                 </div>
                             </a>
                         </div>

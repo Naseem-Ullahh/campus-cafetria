@@ -415,6 +415,8 @@
         .status-preparing { background: rgba(255, 177, 105, 0.35); color: var(--amber-text); }
         .status-ready { background: rgba(47, 143, 134, 0.12); color: var(--success-color); }
         .status-completed { background: rgba(138, 129, 120, 0.15); color: var(--text-muted); }
+        .status-accepted { background: rgba(47, 143, 134, 0.12); color: var(--teal-text); }
+        .status-cancelled, .status-rejected, .status-no-show { background: var(--error-tint); color: var(--error); }
 
         /* Quick Actions */
         .quick-actions {
@@ -568,3 +570,5 @@
                 justify-content: center;
             }
         }
+        .notification-badge[hidden] { display: none; }
+        a.btn-icon { color: inherit; }

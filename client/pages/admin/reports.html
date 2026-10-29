@@ -28,8 +28,11 @@
         </div>
         <ul class="sidebar-menu">
             <li><a href="dashboard.html"><i class="fas fa-chart-line"></i> Dashboard</a></li>
-            <li><a href="menu-management.html"><i class="fas fa-pizza-slice"></i> Menu Management</a></li>
-            <li><a href="orders-management.html"><i class="fas fa-shopping-bag"></i> Orders</a></li>
+            <li><a href="incoming.html"><i class="fas fa-inbox"></i> Incoming orders</a></li>
+            <li><a href="kitchen.html"><i class="fas fa-fire"></i> Kitchen</a></li>
+            <li><a href="counter.html"><i class="fas fa-cash-register"></i> Pickup counter</a></li>
+            <li><a href="menu-management.html"><i class="fas fa-pizza-slice"></i> Menu</a></li>
+            <li><a href="orders-management.html"><i class="fas fa-shopping-bag"></i> All orders</a></li>
             <li class="active"><a href="reports.html"><i class="fas fa-chart-bar"></i> Reports</a></li>
             <li><a href="#" class="logout-btn" onclick="adminLogout(); return false;"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
@@ -47,8 +50,7 @@
             </div>
             <div class="topbar-right">
                 <div class="admin-profile">
-                    <img src="https://ui-avatars.com/api/?name=Admin&background=2B1D16&color=F5F5DC" alt="Admin" class="admin-avatar">
-                    <span>Admin User</span>
+                    <span id="adminName"></span>
                 </div>
             </div>
         </div>
@@ -81,7 +83,7 @@
                     </div>
                     <div class="stat-details">
                         <h3 id="totalRevenue">Rs. 0</h3>
-                        <p>Total Revenue</p>
+                        <p>Revenue (payments confirmed)</p>
                         <span class="stat-change" id="revenueChange">Selected period</span>
                     </div>
                 </div>
@@ -91,7 +93,7 @@
                     </div>
                     <div class="stat-details">
                         <h3 id="totalOrders">0</h3>
-                        <p>Total Orders</p>
+                        <p>Orders placed</p>
                         <span class="stat-change" id="ordersChange">Selected period</span>
                     </div>
                 </div>
@@ -101,7 +103,7 @@
                     </div>
                     <div class="stat-details">
                         <h3 id="avgOrder">Rs. 0</h3>
-                        <p>Average Order Value</p>
+                        <p>Average per collected order</p>
                         <span class="stat-change" id="avgChange">Selected period</span>
                     </div>
                 </div>
@@ -111,7 +113,7 @@
                     </div>
                     <div class="stat-details">
                         <h3 id="totalCustomers">0</h3>
-                        <p>Unique Customers</p>
+                        <p>Customers</p>
                         <span class="stat-change" id="customersChange">Selected period</span>
                     </div>
                 </div>

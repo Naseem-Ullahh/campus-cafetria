@@ -590,3 +590,5 @@
                 display: none;
             }
         }
+
+.form-error { color: var(--error); font-weight: 600; min-height: 1.2em; margin: 4px 0 12px; }

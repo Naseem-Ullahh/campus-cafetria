@@ -1,22 +1,48 @@
-// Students must be logged in to order
-requireStudentLogin();
+// Menu items from the API (loaded once the login is confirmed)
+let menuItems = [];
 
-// Menu items managed by the admin (store.js)
-const menuItems = getMenuItems();
-
-// Cart array (stored in memory)
-let cart = JSON.parse(localStorage.getItem('cart')) || [];
+// Cart, kept in this browser until checkout
+let cart = loadCart();
 
 // Current filter
 let currentCategory = 'all';
 let currentSearch = '';
 
-// Initialize page
-document.addEventListener('DOMContentLoaded', function() {
+// Initialize page: students must be logged in to order
+document.addEventListener('DOMContentLoaded', async function() {
+    const user = await requireStudentLogin();
+    if (!user) return;
     showUserName();
     updateCartCount();
-    displayMenuItems(menuItems);
+    await loadMenu();
 });
+
+async function loadMenu() {
+    const container = document.getElementById('menuContainer');
+    container.innerHTML = `
+        <div class="col-12">
+            <div class="empty-state">
+                <i class="fas fa-spinner fa-spin"></i>
+                <h3>Loading the menu...</h3>
+            </div>
+        </div>
+    `;
+    try {
+        menuItems = await getMenuItems();
+        filterAndDisplay();
+    } catch (error) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-plug"></i>
+                    <h3>Couldn't load the menu</h3>
+                    <p>${escapeHtml(error.message)}</p>
+                    <button class="add-to-cart-btn" onclick="loadMenu()"><i class="fas fa-redo"></i> Try again</button>
+                </div>
+            </div>
+        `;
+    }
+}
 
 // Greet the logged-in user by first name
 function showUserName() {
@@ -48,17 +74,17 @@ function displayMenuItems(items) {
         <div class="col-lg-3 col-md-4 col-sm-6">
             <div class="food-card">
                 <div style="position: relative;">
-                    <img src="${item.image}" alt="${item.name}" class="food-image">
+                    <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="food-image">
                     <span class="food-badge ${isInStock(item) ? 'badge-available' : 'badge-unavailable'}">
                         ${isInStock(item) ? '<i class="fas fa-check"></i> Available' : 'Out of stock'}
                     </span>
                 </div>
                 <div class="food-content">
-                    <div class="food-category">${item.category}</div>
-                    <div class="food-name">${item.name}</div>
-                    <div class="food-description">${item.description}</div>
+                    <div class="food-category">${escapeHtml(item.categoryName)}</div>
+                    <div class="food-name">${escapeHtml(item.name)}</div>
+                    <div class="food-description">${escapeHtml(item.description)}</div>
                     <div class="food-footer">
-                        <div class="food-price">Rs. ${item.price}</div>
+                        <div class="food-price">${formatPrice(item.price)}</div>
                         <button 
                             class="add-to-cart-btn" 
                             onclick="addToCart(${item.id})"
@@ -137,8 +163,7 @@ function addToCart(itemId) {
         });
     }
     
-    // Save to localStorage
-    localStorage.setItem('cart', JSON.stringify(cart));
+    storeCart(cart);
     
     // Update cart count
     updateCartCount();

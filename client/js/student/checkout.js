@@ -1,11 +1,11 @@
-requireStudentLogin();
-
-// Load cart from localStorage
-let cart = JSON.parse(localStorage.getItem('cart')) || [];
+// Cart, kept in this browser until the order is placed
+let cart = loadCart();
 let selectedPayment = 'Cash';
 
 // Initialize page
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    const user = await requireStudentLogin();
+    if (!user) return;
     if (cart.length === 0) {
         document.getElementById('emptyCartAlert').classList.add('show');
         setTimeout(() => {
@@ -54,10 +54,8 @@ function fillPickupSlots() {
     }
 }
 
-// "Today 1:30 PM" / "Tomorrow 9:00 AM"
 function formatPickupLabel(date) {
-    const day = date.toDateString() === new Date().toDateString() ? 'Today' : 'Tomorrow';
-    return `${day} ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    return formatWhen(date);
 }
 
 // Load order summary
@@ -72,9 +70,9 @@ function loadOrderSummary() {
         <div class="order-item">
             <div class="item-info">
                 <span class="item-qty">${item.quantity}x</span>
-                <span class="item-name">${item.name}</span>
+                <span class="item-name">${escapeHtml(item.name)}</span>
             </div>
-            <span class="item-price">Rs. ${item.price * item.quantity}</span>
+            <span class="item-price">${formatPrice(item.price * item.quantity)}</span>
         </div>
     `).join('');
 
@@ -104,19 +102,12 @@ function selectPayment(method) {
     }
 }
 
-// Place order
-function placeOrder() {
-    // Validate form
+// Place order: the server re-checks everything, takes the prices from the
+// menu and reserves the stock - the totals shown here are only a preview
+async function placeOrder() {
     const form = document.getElementById('checkoutForm');
     if (!form.checkValidity()) {
         form.reportValidity();
-        return;
-    }
-
-    const phone = normalizePakistaniMobile(document.getElementById('phoneNumber').value);
-    if (!phone) {
-        showToast('Enter a Pakistani mobile number, e.g. 0300 1234567', 'error');
-        document.getElementById('phoneNumber').focus();
         return;
     }
 
@@ -128,50 +119,29 @@ function placeOrder() {
             document.getElementById('transactionRef').focus();
             return;
         }
-        if (getOrders().some(o => o.transactionReference === transactionReference)) {
-            showToast('This transaction ID has already been used for another order', 'error');
-            document.getElementById('transactionRef').focus();
-            return;
-        }
     }
 
-    const pickupSelect = document.getElementById('pickupTime');
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-    // Get form data
-    const orderData = {
-        orderId: 'ORD' + Date.now(),
-        studentId: document.getElementById('studentId').value,
-        fullName: document.getElementById('fullName').value,
-        phoneNumber: phone,
-        pickupAt: pickupSelect.value,
-        pickupTime: pickupSelect.options[pickupSelect.selectedIndex].text,
-        specialInstructions: document.getElementById('specialInstructions').value,
-        paymentMethod: selectedPayment,
-        transactionReference,
-        paymentStatus: 'Pending',
-        items: cart,
-        total,
-        status: 'Received',
-        timestamp: new Date().toISOString()
-    };
-
-    // Save order to the shared store (also takes the items out of stock)
-    placeNewOrder(orderData);
-
-    // Save current order for status page
-    localStorage.setItem('currentOrder', JSON.stringify(orderData));
-
-    // Clear cart
-    localStorage.removeItem('cart');
-
-    // Show success message
-    showToast('Order placed successfully!', 'success');
-
-    // Redirect to order status page
-    setTimeout(() => {
-        window.location.href = 'receipt.html';
-    }, 1500);
+    const button = document.getElementById('placeOrderBtn');
+    button.disabled = true;
+    try {
+        const { order } = await api('/orders', {
+            method: 'POST',
+            body: {
+                items: cart.map(item => ({ item_id: item.id, quantity: item.quantity })),
+                pickup_time: document.getElementById('pickupTime').value,
+                payment_method: selectedPayment,
+                transaction_reference: transactionReference,
+                special_instructions: document.getElementById('specialInstructions').value
+            }
+        });
+        clearCart();
+        localStorage.setItem('currentOrderId', order.order_id);
+        showToast('Order placed!', 'success');
+        setTimeout(() => { window.location.href = 'receipt.html?order=' + order.order_id; }, 800);
+    } catch (error) {
+        showToast(error.message, 'error');
+        button.disabled = false;
+    }
 }
 
 // Show toast notification

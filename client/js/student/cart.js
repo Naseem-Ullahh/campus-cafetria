@@ -1,8 +1,10 @@
-// Load cart from localStorage
-let cart = JSON.parse(localStorage.getItem('cart')) || [];
+// Cart, kept in this browser until checkout
+let cart = loadCart();
 
 // Initialize page
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    const user = await requireStudentLogin();
+    if (!user) return;
     renderCart();
 });
 
@@ -41,10 +43,10 @@ function renderCart() {
             <div class="cart-items">
                 ${cart.map((item, index) => `
                     <div class="cart-item">
-                        <img src="${item.image}" alt="${item.name}" class="item-image">
+                        <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="item-image">
                         <div class="item-details">
-                            <h3 class="item-name">${item.name}</h3>
-                            <div class="item-price">Rs. ${item.price} each</div>
+                            <h3 class="item-name">${escapeHtml(item.name)}</h3>
+                            <div class="item-price">${formatPrice(item.price)} each</div>
                             <div class="item-actions">
                                 <div class="quantity-control">
                                     <button class="qty-btn" onclick="updateQuantity(${index}, -1)" ${item.quantity <= 1 ? 'disabled' : ''}>
@@ -55,7 +57,7 @@ function renderCart() {
                                         <i class="fas fa-plus"></i>
                                     </button>
                                 </div>
-                                <div class="item-total">Rs. ${item.price * item.quantity}</div>
+                                <div class="item-total">${formatPrice(item.price * item.quantity)}</div>
                                 <button class="remove-btn" onclick="removeItem(${index})" title="Remove item">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
@@ -90,24 +92,6 @@ function renderCart() {
                         <i class="fas fa-arrow-left"></i> Continue Shopping
                     </a>
                 </div>
-
-                <!-- Promo Code Section -->
-                <div class="promo-section">
-                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted); font-weight: 600;">
-                        Have a promo code?
-                    </p>
-                    <div class="promo-input-group">
-                        <input 
-                            type="text" 
-                            class="promo-input" 
-                            id="promoCode" 
-                            placeholder="Enter code"
-                        >
-                        <button class="apply-btn" onclick="applyPromoCode()">
-                            Apply
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     `;
@@ -138,9 +122,8 @@ function removeItem(index) {
     showToast(`${itemName} removed from cart`);
 }
 
-// Save cart to localStorage
 function saveCart() {
-    localStorage.setItem('cart', JSON.stringify(cart));
+    storeCart(cart);
 }
 
 // Proceed to checkout
@@ -152,30 +135,6 @@ function proceedToCheckout() {
     
     // Redirect to checkout page
     window.location.href = 'checkout.html';
-}
-
-// Apply promo code
-function applyPromoCode() {
-    const code = document.getElementById('promoCode').value.trim().toUpperCase();
-    
-    if (!code) {
-        showToast('Please enter a promo code', 'error');
-        return;
-    }
-
-    // Dummy promo codes (replace with actual logic later)
-    const validCodes = {
-        'FIRST10': 10,
-        'STUDENT20': 20,
-        'WELCOME15': 15
-    };
-
-    if (validCodes[code]) {
-        showToast(`Promo code applied! ${validCodes[code]}% discount`, 'success');
-        document.getElementById('promoCode').value = '';
-    } else {
-        showToast('Invalid promo code', 'error');
-    }
 }
 
 // Show toast notification

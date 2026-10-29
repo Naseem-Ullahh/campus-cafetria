@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incoming orders - Signals Std. Cafe'</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Cormorant+Garamond:wght@500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../css/theme.css">
+
+    <link rel="stylesheet" href="../../css/admin/boards.css">
+</head>
+<body class="board-page soft-ui" data-board="incoming">
+
+    <header class="board-bar">
+        <span class="brand-script">Signals Std. Cafe'</span>
+        <nav class="board-nav" id="boardNav" aria-label="Staff screens"></nav>
+        <div class="board-user">
+            <span id="staffName"></span>
+            <button type="button" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </header>
+
+    <main class="board-main">
+        <div class="board-head">
+            <h1>Incoming orders</h1>
+            <span class="live-status" id="liveStatus" aria-live="polite"><span class="dot"></span> Connecting...</span>
+        </div>
+        <p class="board-help muted">Accept to send an order to the kitchen, or reject it with a reason. Orders not accepted within 10 minutes are rejected automatically.</p>
+
+        <div class="board-columns">
+            <section>
+                <div class="cards" id="column-all"></div>
+            </section>
+        </div>
+        <p class="empty-state" id="emptyState" hidden></p>
+    </main>
+
+    <script src="../../js/store.js"></script>
+    <script src="../../js/admin/boards.js"></script>
+</body>
+</html>

@@ -1,97 +1,74 @@
-// Campus Cafeteria - shared data layer
-// Every page reads and writes menu items, orders and users through these
-// helpers so the student side and the admin side always see the same data.
-// Storage is localStorage (frontend only) - swap these functions for API calls later.
+// Signals Std. Cafe' - shared data layer
+// Every page talks to the Flask API (server/) through these helpers.
+// The only thing kept in the browser is the cart, until the order is placed;
+// menu, orders and accounts all live in MySQL.
 
-const ORDER_STATUSES = ['Received', 'Preparing', 'Ready', 'Completed', 'Cancelled'];
 const MENU_CATEGORIES = ['breakfast', 'lunch', 'snacks', 'beverages'];
-const LOW_STOCK_LIMIT = 10;
+const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=300&fit=crop';
 
-// Default menu, used the first time the app runs
-const DEFAULT_MENU = [
-    { id: 1, name: 'Classic Burger', category: 'lunch', price: 120, stock: 40, popular: true, available: true,
-      description: 'Juicy beef patty with fresh vegetables and special sauce',
-      image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop' },
-    { id: 2, name: 'Margherita Pizza', category: 'lunch', price: 180, stock: 25, popular: true, available: true,
-      description: 'Classic pizza with tomato sauce, mozzarella, and basil',
-      image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop' },
-    { id: 3, name: 'French Fries', category: 'snacks', price: 60, stock: 0, popular: false, available: false,
-      description: 'Crispy golden fries with ketchup',
-      image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&h=300&fit=crop' },
-    { id: 4, name: 'Orange Juice', category: 'beverages', price: 40, stock: 8, popular: false, available: true,
-      description: 'Freshly squeezed orange juice',
-      image: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=400&h=300&fit=crop' },
-    { id: 5, name: 'Pancakes', category: 'breakfast', price: 90, stock: 20, popular: false, available: true,
-      description: 'Fluffy pancakes with maple syrup and butter',
-      image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=300&fit=crop' },
-    { id: 6, name: 'Chicken Sandwich', category: 'lunch', price: 100, stock: 30, popular: true, available: true,
-      description: 'Grilled chicken breast with lettuce and mayo',
-      image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=400&h=300&fit=crop' },
-    { id: 7, name: 'Coffee', category: 'beverages', price: 50, stock: 100, popular: true, available: true,
-      description: 'Hot brewed coffee - Americano, Latte, or Cappuccino',
-      image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=300&fit=crop' },
-    { id: 8, name: 'Samosa', category: 'snacks', price: 30, stock: 60, popular: true, available: true,
-      description: 'Crispy fried pastry with spiced potato filling (2 pieces)',
-      image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=300&fit=crop' },
-    { id: 9, name: 'Pasta Alfredo', category: 'lunch', price: 150, stock: 15, popular: false, available: true,
-      description: 'Creamy alfredo pasta with parmesan cheese',
-      image: 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=400&h=300&fit=crop' },
-    { id: 10, name: 'Chocolate Shake', category: 'beverages', price: 80, stock: 6, popular: false, available: true,
-      description: 'Rich and creamy chocolate milkshake',
-      image: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=400&h=300&fit=crop' },
-    { id: 11, name: 'Egg Omelette', category: 'breakfast', price: 70, stock: 25, popular: false, available: true,
-      description: 'Three-egg omelette with cheese and vegetables',
-      image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=400&h=300&fit=crop' },
-    { id: 12, name: 'Spring Rolls', category: 'snacks', price: 80, stock: 35, popular: false, available: true,
-      description: 'Crispy vegetable spring rolls (4 pieces)',
-      image: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=400&h=300&fit=crop' }
-];
+// Which screen each staff role starts on (paths relative to pages/admin/)
+const STAFF_HOME = { admin: 'dashboard.html', cashier: 'incoming.html', kitchen: 'kitchen.html' };
 
-// Sample orders so the admin pages have something to show on first run
-function buildSampleOrders() {
-    const minutesAgo = (m) => new Date(Date.now() - m * 60000).toISOString();
-    const makeOrder = (orderId, studentId, fullName, phoneNumber, items, status, timestamp) => {
-        const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        return {
-            orderId, studentId, fullName, phoneNumber,
-            pickupTime: 'Today 1:30 PM', specialInstructions: '', paymentMethod: 'Cash',
-            transactionReference: null, paymentStatus: status === 'Completed' ? 'Confirmed' : 'Pending',
-            items, total, status, timestamp
-        };
-    };
-    return [
-        makeOrder('ORD1001', 'STU001', 'Ali Hassan', '03001234567',
-            [{ id: 1, name: 'Classic Burger', price: 120, quantity: 2 }, { id: 7, name: 'Coffee', price: 50, quantity: 1 }],
-            'Received', minutesAgo(5)),
-        makeOrder('ORD1002', 'STU002', 'Fatima Khan', '03019876543',
-            [{ id: 2, name: 'Margherita Pizza', price: 180, quantity: 1 }],
-            'Preparing', minutesAgo(20)),
-        makeOrder('ORD1003', 'STU003', 'Ahmed Malik', '03025551234',
-            [{ id: 5, name: 'Pancakes', price: 90, quantity: 1 }, { id: 7, name: 'Coffee', price: 50, quantity: 2 }],
-            'Completed', minutesAgo(26 * 60))
-    ];
-}
-
-// ---------- Generic helpers ----------
-function loadData(key, fallback) {
-    try {
-        const value = localStorage.getItem(key);
-        return value ? JSON.parse(value) : fallback;
-    } catch (e) {
-        return fallback;
+class ApiError extends Error {
+    constructor(message, status) {
+        super(message);
+        this.status = status;
     }
 }
 
-function saveData(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
+// ---------- API ----------
+async function api(path, { method = 'GET', body } = {}) {
+    const options = { method, credentials: 'same-origin', headers: {} };
+    if (body !== undefined) {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify(body);
+    }
+    let response;
+    try {
+        response = await fetch('/api' + path, options);
+    } catch (e) {
+        throw new ApiError('Cannot reach the server. Check your connection and try again.', 0);
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new ApiError(data.error || `Request failed (${response.status})`, response.status);
+    }
+    return data;
 }
 
+// ---------- Formatting ----------
 function formatPrice(amount) {
     return 'Rs. ' + Math.round(amount || 0).toLocaleString();
 }
 
+function formatOrderNumber(orderId) {
+    return '#' + String(orderId).padStart(4, '0');
+}
+
+// "Today 1:30 PM", "Tomorrow 9:00 AM" or "Mon, 3 Nov 1:30 PM"
+function formatWhen(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const dayDiff = Math.round((new Date(date).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
+    if (dayDiff === 0) return `Today ${time}`;
+    if (dayDiff === 1) return `Tomorrow ${time}`;
+    if (dayDiff === -1) return `Yesterday ${time}`;
+    return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + time;
+}
+
+function isToday(value) {
+    return new Date(value).toDateString() === new Date().toDateString();
+}
+
+// Text from the server or the user, safe to put inside innerHTML
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // Pakistani mobile number: 03XXXXXXXXX or +923XXXXXXXXX (spaces/dashes allowed).
-// Returns the number as 03XXXXXXXXX, or null if it isn't valid.
+// Returns the number as 03XXXXXXXXX, or null if it isn't valid. (Same rule on the server.)
 function normalizePakistaniMobile(value) {
     const digits = String(value || '').replace(/[\s-]/g, '');
     if (/^03\d{9}$/.test(digits)) return digits;
@@ -100,123 +77,151 @@ function normalizePakistaniMobile(value) {
     return null;
 }
 
-function isToday(isoString) {
-    return new Date(isoString).toDateString() === new Date().toDateString();
-}
-
 // ---------- Menu ----------
-function getMenuItems() {
-    let items = loadData('menuItems', null);
-    if (!items) {
-        items = DEFAULT_MENU;
-        saveData('menuItems', items);
-    }
-    return items;
+function toMenuItem(row) {
+    return {
+        id: row.item_id,
+        name: row.item_name,
+        category: row.category_name.toLowerCase(),
+        categoryId: row.category_id,
+        categoryName: row.category_name,
+        price: row.price,
+        stock: row.stock_quantity,
+        lowStockThreshold: row.low_stock_threshold,
+        available: row.is_available === undefined ? true : !!row.is_available,
+        hasOrders: !!row.has_orders,
+        description: row.description || '',
+        image: row.image_url || PLACEHOLDER_IMAGE
+    };
 }
 
-function saveMenuItems(items) {
-    saveData('menuItems', items);
+async function getMenuItems() {
+    const { items } = await api('/menu');
+    return items.map(toMenuItem);
 }
 
-// Item can be ordered only if the admin marked it available and it has stock
+// Item can be ordered only if the manager switched it on and it has stock
 function isInStock(item) {
     return item.available && item.stock > 0;
 }
 
 // ---------- Orders ----------
-function getOrders() {
-    let orders = loadData('orders', null);
-    if (!orders) {
-        orders = buildSampleOrders();
-        saveData('orders', orders);
+function toOrder(row) {
+    return {
+        orderId: row.order_id,
+        number: formatOrderNumber(row.order_id),
+        status: row.status,
+        timestamp: row.order_date,
+        pickupAt: row.requested_pickup_time,
+        pickupTime: formatWhen(row.requested_pickup_time),
+        estimatedReady: row.estimated_ready_time,
+        fullName: row.full_name,
+        studentId: row.university_id,
+        phoneNumber: row.phone,
+        total: row.total_amount,
+        paymentMethod: row.payment_method,
+        paymentStatus: row.payment_status,
+        transactionReference: row.transaction_reference,
+        specialInstructions: row.special_instructions || '',
+        closeReason: row.close_reason,
+        cancellationDeadline: row.cancellation_deadline,
+        itemsText: row.items || '',
+        items: (row.lines || []).map(line => ({
+            id: line.item_id, name: line.item_name, price: line.unit_price, quantity: line.quantity
+        })),
+        history: row.history || []
+    };
+}
+
+async function getMyOrders() {
+    const { orders } = await api('/orders/mine');
+    return orders.map(toOrder);
+}
+
+async function getOrder(orderId) {
+    const { order } = await api('/orders/' + encodeURIComponent(orderId));
+    return toOrder(order);
+}
+
+// ---------- Cart (this browser only, until checkout) ----------
+function loadCart() {
+    try {
+        return JSON.parse(localStorage.getItem('cart')) || [];
+    } catch (e) {
+        return [];
     }
-    return orders;
 }
 
-function saveOrders(orders) {
-    saveData('orders', orders);
+function storeCart(cart) {
+    localStorage.setItem('cart', JSON.stringify(cart));
 }
 
-function findOrder(orderId) {
-    return getOrders().find(o => o.orderId === orderId);
+function clearCart() {
+    localStorage.removeItem('cart');
 }
 
-function setOrderStatus(orderId, status) {
-    const orders = getOrders();
-    const order = orders.find(o => o.orderId === orderId);
-    if (order) {
-        order.status = status;
-        saveOrders(orders);
+// ---------- Accounts ----------
+let currentUser = null;
+
+function toUser(row) {
+    return {
+        id: row.user_id,
+        name: row.full_name,
+        studentId: row.university_id,
+        email: row.email,
+        phone: row.phone,
+        userType: row.user_type,
+        role: row.role,
+        createdAt: row.created_at
+    };
+}
+
+async function loadCurrentUser() {
+    try {
+        currentUser = toUser((await api('/auth/me')).user);
+    } catch (e) {
+        if (e.status !== 401) throw e;
+        currentUser = null;
     }
-    return order;
-}
-
-// Save a new order and take the ordered quantities out of stock
-function placeNewOrder(order) {
-    const orders = getOrders();
-    orders.push(order);
-    saveOrders(orders);
-
-    const menu = getMenuItems();
-    order.items.forEach(cartItem => {
-        const menuItem = menu.find(m => m.id === cartItem.id);
-        if (menuItem) {
-            menuItem.stock = Math.max(0, menuItem.stock - cartItem.quantity);
-        }
-    });
-    saveMenuItems(menu);
-}
-
-// ---------- Users ----------
-// Demo account (matches the first sample order) - login: STU001 / student123
-const DEFAULT_USERS = [
-    { name: 'Ali Hassan', studentId: 'STU001', email: 'ali.hassan@university.edu', phone: '03001234567',
-      password: 'student123', department: 'Computer Science', address: 'Room 205, Boys Hostel' }
-];
-
-function getUsers() {
-    let users = loadData('users', null);
-    if (!users) {
-        users = DEFAULT_USERS;
-        saveData('users', users);
-    }
-    return users;
-}
-
-function saveUsers(users) {
-    saveData('users', users);
+    return currentUser;
 }
 
 function getCurrentUser() {
-    return loadData('currentUser', null);
+    return currentUser;
 }
 
-function setCurrentUser(user) {
-    // Never keep the password in the session copy
-    const { password, ...sessionUser } = user;
-    saveData('currentUser', sessionUser);
+// Pages call: const user = await requireStudentLogin(); if (!user) return;
+async function requireStudentLogin() {
+    const user = await loadCurrentUser();
+    if (!user || user.role !== 'customer') {
+        window.location.href = 'login.html';
+        return null;
+    }
+    return user;
 }
 
-function requireStudentLogin() {
-    if (!getCurrentUser()) {
+async function requireStaffLogin(...roles) {
+    const user = await loadCurrentUser();
+    if (!user || !STAFF_HOME[user.role]) {
+        window.location.href = 'login.html';
+        return null;
+    }
+    if (roles.length && !roles.includes(user.role)) {
+        window.location.href = STAFF_HOME[user.role];     // send them to their own screen
+        return null;
+    }
+    return user;
+}
+
+async function logout() {
+    try {
+        await api('/auth/logout', { method: 'POST', body: {} });
+    } finally {
+        clearCart();
         window.location.href = 'login.html';
     }
 }
 
-function studentLogout() {
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('cart');
-    window.location.href = 'login.html';
-}
-
-// ---------- Admin session ----------
-function requireAdminLogin() {
-    if (!localStorage.getItem('adminSession')) {
-        window.location.href = 'login.html';
-    }
-}
-
-function adminLogout() {
-    localStorage.removeItem('adminSession');
-    window.location.href = 'login.html';
-}
+// Old names still used by some pages
+const studentLogout = logout;
+const adminLogout = logout;

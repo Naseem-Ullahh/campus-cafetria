@@ -54,46 +54,47 @@ function showAlert(message, type) {
     }, 4000);
 }
 
+// Already signed in? Go straight to the menu
+loadCurrentUser().then(user => {
+    if (user && user.role === 'customer') window.location.href = 'home.html';
+}).catch(() => {});
+
+function setBusy(form, busy) {
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = busy;
+    button.setAttribute('aria-busy', busy);
+}
+
 // Handle Login Form Submission
-function handleLogin(event) {
+async function handleLogin(event) {
     event.preventDefault();
     
-    const studentId = document.getElementById('loginStudentId').value.trim();
+    const login = document.getElementById('loginStudentId').value.trim();
     const password = document.getElementById('loginPassword').value;
 
-    // Basic validation
-    if (studentId.length < 4) {
+    if (login.length < 4) {
         showAlert('Enter your university ID (at least 4 characters) or email', 'danger');
         return;
     }
-
-    if (password.length < 6) {
-        showAlert('Password must be at least 6 characters', 'danger');
+    if (!password) {
+        showAlert('Enter your password', 'danger');
         return;
     }
 
-    // Check against registered students (ID or email)
-    const user = getUsers().find(u =>
-        (u.studentId.toLowerCase() === studentId.toLowerCase() || u.email.toLowerCase() === studentId.toLowerCase()) &&
-        u.password === password
-    );
-
-    if (!user) {
-        showAlert('Invalid student ID or password', 'danger');
-        return;
+    setBusy(event.target, true);
+    try {
+        await api('/auth/login', { method: 'POST', body: { login, password } });
+        clearCart();    // a cart left by someone else on this browser
+        showAlert('Signed in. Opening the menu...', 'success');
+        setTimeout(() => { window.location.href = 'home.html'; }, 600);
+    } catch (error) {
+        showAlert(error.message, 'danger');
+        setBusy(event.target, false);
     }
-
-    setCurrentUser(user);
-    showAlert('Login successful! Redirecting...', 'success');
-    
-    // Redirect to home page after 1.5 seconds
-    setTimeout(() => {
-        window.location.href = 'home.html';
-    }, 1500);
 }
 
 // Handle Register Form Submission
-function handleRegister(event) {
+async function handleRegister(event) {
     event.preventDefault();
     
     const name = document.getElementById('regName').value.trim();
@@ -104,7 +105,7 @@ function handleRegister(event) {
     const password = document.getElementById('regPassword').value;
     const confirmPassword = document.getElementById('regConfirmPassword').value;
 
-    // Validation
+    // Validation (the server checks all of this again)
     if (name.length < 3) {
         showAlert('Name must be at least 3 characters', 'danger');
         return;
@@ -135,24 +136,17 @@ function handleRegister(event) {
         return;
     }
 
-    const users = getUsers();
-    if (users.some(u => u.studentId.toLowerCase() === studentId.toLowerCase())) {
-        showAlert('This university ID is already registered', 'danger');
-        return;
+    setBusy(event.target, true);
+    try {
+        await api('/auth/register', {
+            method: 'POST',
+            body: { full_name: name, university_id: studentId, email, phone, user_type: userType, password }
+        });
+        clearCart();
+        showAlert('Account created. Opening the menu...', 'success');
+        setTimeout(() => { window.location.href = 'home.html'; }, 800);
+    } catch (error) {
+        showAlert(error.message, 'danger');
+        setBusy(event.target, false);
     }
-    if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-        showAlert('This email is already registered', 'danger');
-        return;
-    }
-
-    // Save the new student (frontend only - a real app would hash the password on a server)
-    users.push({ name, studentId, email, phone, password, userType, department: '', address: '' });
-    saveUsers(users);
-    document.getElementById('loginStudentId').value = studentId;
-    showAlert('Registration successful! Please login.', 'success');
-    
-    // Switch to login tab after 2 seconds
-    setTimeout(() => {
-        switchTab('login');
-    }, 2000);
 }

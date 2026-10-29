@@ -1,90 +1,81 @@
-$(document).ready(function() {
-    checkAuth();
+let myOrders = [];
+
+$(document).ready(async function() {
+    const user = await requireStudentLogin();
+    if (!user) return;
     loadProfileData();
-    loadOrderHistory();
     updateCartBadge();
+    try {
+        myOrders = await getMyOrders();
+    } catch (error) {
+        $('#orderHistoryContainer').html(`<div class="empty-state"><h4>Couldn't load your orders</h4><p>${escapeHtml(error.message)}</p></div>`);
+        return;
+    }
+    loadOrderHistory();
     calculateStats();
 });
 
-// Check authentication
-function checkAuth() {
-    const currentUser = localStorage.getItem('currentUser');
-    if (!currentUser) {
-        window.location.href = 'login.html';
-        return;
-    }
-}
+const USER_TYPES = { student: 'Student', faculty: 'Faculty', staff: 'Staff' };
 
 // Load profile data
 function loadProfileData() {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find(u => u.studentId === currentUser.studentId) || currentUser;
+    const user = getCurrentUser();
 
-    // Set avatar
+    // Avatar is generated from the name
     const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=2B1D16&color=F5F5DC&size=150`;
     $('#profileAvatar').attr('src', avatarUrl);
     $('#navAvatar').attr('src', avatarUrl);
 
-    // Set profile info
     $('#profileName').text(user.name);
     $('#navUserName').text(user.name.split(' ')[0]);
     $('#profileStudentId').text(user.studentId);
     $('#profileEmail').text(user.email);
-    $('#profilePhone').text(user.phone || '+92 3XX XXXXXXX');
-    $('#profileDepartment').text(user.department || 'Computer Science');
+    $('#profilePhone').text(user.phone || '—');
+    $('#profileUserType').text(USER_TYPES[user.userType] || user.userType);
 
-    // Set edit form values
     $('#editName').val(user.name);
     $('#editStudentId').val(user.studentId);
     $('#editEmail').val(user.email);
     $('#editPhone').val(user.phone || '');
-    $('#editDepartment').val(user.department || 'Computer Science');
-    $('#editAddress').val(user.address || '');
 }
 
-// Calculate statistics
+// Statistics from this customer's orders
 function calculateStats() {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    const userOrders = orders.filter(o => o.studentId === currentUser.studentId);
+    const completed = myOrders.filter(o => o.status === 'Completed');
 
-    // Total orders
-    $('#totalOrders').text(userOrders.length);
+    $('#totalOrders').text(myOrders.length);
+    $('#totalSpent').text(formatPrice(completed.reduce((sum, o) => sum + o.total, 0)));
+    $('#collectedOrders').text(completed.length);
 
-    // Total spent
-    const totalSpent = userOrders
-        .filter(o => o.status !== 'Cancelled')
-        .reduce((sum, o) => sum + o.total, 0);
-    $('#totalSpent').text(formatPrice(totalSpent));
-
-    // Favorite item (most ordered)
+    // Favourite item (most ordered across all their orders), from "2 x Burger, 1 x Coffee"
     const itemCount = {};
-    userOrders.forEach(order => {
-        order.items.forEach(item => {
-            itemCount[item.name] = (itemCount[item.name] || 0) + item.quantity;
+    myOrders.forEach(order => {
+        order.itemsText.split(', ').forEach(part => {
+            const match = part.match(/^(\d+) x (.+)$/);
+            if (match) itemCount[match[2]] = (itemCount[match[2]] || 0) + Number(match[1]);
         });
     });
-    const favoriteItem = Object.keys(itemCount).reduce((a, b) => 
-        itemCount[a] > itemCount[b] ? a : b, '-'
-    );
-    $('#favoriteItem').text(favoriteItem);
-
-    // Reward points (10 points per Rs. 100 spent)
-    const points = Math.floor(totalSpent / 100) * 10;
-    $('#rewardPoints').text(points);
+    const favourite = Object.keys(itemCount).sort((a, b) => itemCount[b] - itemCount[a])[0];
+    $('#favoriteItem').text(favourite || '—');
 }
 
-// Load order history
+const STATUS_CLASS = {
+    Received: 'status-pending',
+    Accepted: 'status-pending',
+    Preparing: 'status-preparing',
+    Ready: 'status-ready',
+    Completed: 'status-completed',
+    Cancelled: 'status-cancelled',
+    Rejected: 'status-cancelled',
+    'No Show': 'status-cancelled'
+};
+const OPEN_STATUSES = ['Received', 'Accepted', 'Preparing', 'Ready'];
+
+// Load order history (newest first, as sent by the server)
 function loadOrderHistory() {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    const userOrders = orders.filter(o => o.studentId === currentUser.studentId);
-
     const container = $('#orderHistoryContainer');
-    container.empty();
 
-    if (userOrders.length === 0) {
+    if (myOrders.length === 0) {
         container.html(`
             <div class="empty-state">
                 <i class="fas fa-receipt"></i>
@@ -98,62 +89,54 @@ function loadOrderHistory() {
         return;
     }
 
-    // Newest orders first
-    userOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    const statusClass = {
-        'Received': 'status-pending',
-        'Preparing': 'status-preparing',
-        'Ready': 'status-ready',
-        'Completed': 'status-completed',
-        'Cancelled': 'status-cancelled'
-    };
-
-    container.html(userOrders.map(order => `
+    container.html(myOrders.map(order => `
         <div class="order-card">
             <div class="order-header">
-                <span class="order-id">#${order.orderId}</span>
-                <span class="order-status ${statusClass[order.status] || 'status-pending'}">${order.status}</span>
+                <span class="order-id">${order.number}</span>
+                <span class="order-status ${STATUS_CLASS[order.status] || 'status-pending'}">${order.status}</span>
             </div>
             <div class="order-items">
-                ${order.items.map(item => `
-                    <div class="order-item">
-                        <span>${item.quantity}x ${item.name}</span>
-                        <span>${formatPrice(item.price * item.quantity)}</span>
-                    </div>
-                `).join('')}
+                ${order.itemsText.split(', ').map(part => `<div class="order-item"><span>${escapeHtml(part.replace(' x ', 'x '))}</span></div>`).join('')}
+                ${order.closeReason ? `<div class="order-item text-muted"><span>${escapeHtml(order.closeReason)}</span></div>` : ''}
             </div>
             <div class="order-footer">
                 <div>
                     <div class="order-total">${formatPrice(order.total)}</div>
-                    <div class="order-date">${new Date(order.timestamp).toLocaleString()}</div>
+                    <div class="order-date">Ordered ${formatWhen(order.timestamp)} · pickup ${order.pickupTime}</div>
                 </div>
                 <div>
-                    ${order.status !== 'Completed' && order.status !== 'Cancelled'
-                        ? `<button class="btn-reorder" onclick="trackOrder('${order.orderId}')"><i class="fas fa-clock"></i> Track</button>`
-                        : ''}
-                    <button class="btn-reorder" onclick="reorder('${order.orderId}')"><i class="fas fa-redo"></i> Reorder</button>
+                    ${OPEN_STATUSES.includes(order.status)
+                        ? `<button class="btn-reorder" onclick="trackOrder(${order.orderId})"><i class="fas fa-clock"></i> Track</button>`
+                        : `<button class="btn-reorder" onclick="viewReceipt(${order.orderId})"><i class="fas fa-receipt"></i> Receipt</button>`}
+                    <button class="btn-reorder" onclick="reorder(${order.orderId})"><i class="fas fa-redo"></i> Reorder</button>
                 </div>
             </div>
         </div>
     `).join(''));
 }
 
-// Open the order status page for one order
 function trackOrder(orderId) {
-    localStorage.setItem('currentOrder', JSON.stringify(findOrder(orderId)));
-    window.location.href = 'order-status.html';
+    window.location.href = 'order-status.html?order=' + orderId;
+}
+
+function viewReceipt(orderId) {
+    window.location.href = 'receipt.html?order=' + orderId;
 }
 
 // Put the items of an old order back into the cart (only ones still in stock)
-function reorder(orderId) {
-    const order = findOrder(orderId);
-    const menu = getMenuItems();
-    const cart = JSON.parse(localStorage.getItem('cart')) || [];
+async function reorder(orderId) {
+    let order, menu;
+    try {
+        [order, menu] = await Promise.all([getOrder(orderId), getMenuItems()]);
+    } catch (error) {
+        alert(error.message);
+        return;
+    }
+    const cart = loadCart();
     let added = 0;
 
     order.items.forEach(orderItem => {
-        const menuItem = menu.find(m => m.id === orderItem.id) || menu.find(m => m.name === orderItem.name);
+        const menuItem = menu.find(m => m.id === orderItem.id);
         if (!menuItem || !isInStock(menuItem)) return;
 
         const inCart = cart.find(c => c.id === menuItem.id);
@@ -172,14 +155,13 @@ function reorder(orderId) {
         alert('Sorry, none of these items are available right now.');
         return;
     }
-    localStorage.setItem('cart', JSON.stringify(cart));
+    storeCart(cart);
     window.location.href = 'cart.html';
 }
 
 // Cart badge in the navbar
 function updateCartBadge() {
-    const cart = JSON.parse(localStorage.getItem('cart')) || [];
-    $('#cartCount').text(cart.reduce((sum, item) => sum + item.quantity, 0));
+    $('#cartCount').text(loadCart().reduce((sum, item) => sum + item.quantity, 0));
 }
 
 // Switch between Order History / Edit Profile / Settings
@@ -191,44 +173,40 @@ function switchTab(tab) {
 }
 
 // Save the edit profile form
-function updateProfile(event) {
+async function updateProfile(event) {
     event.preventDefault();
-
-    const currentUser = getCurrentUser();
-    const users = getUsers();
-    const user = users.find(u => u.studentId === currentUser.studentId);
-    if (!user) return;
-
-    user.name = $('#editName').val().trim();
-    user.email = $('#editEmail').val().trim();
-    user.phone = $('#editPhone').val().trim();
-    user.department = $('#editDepartment').val();
-    user.address = $('#editAddress').val().trim();
-
-    saveUsers(users);
-    setCurrentUser(user);
+    const phone = normalizePakistaniMobile($('#editPhone').val());
+    if (!phone) {
+        $('#profileError').text('Enter a Pakistani mobile number, e.g. 0300 1234567');
+        return;
+    }
+    try {
+        const { user } = await api('/auth/me', {
+            method: 'PATCH',
+            body: { full_name: $('#editName').val().trim(), email: $('#editEmail').val().trim(), phone }
+        });
+        currentUser = toUser(user);
+    } catch (error) {
+        $('#profileError').text(error.message);
+        return;
+    }
+    $('#profileError').text('');
     loadProfileData();
     switchTab('orders');
     alert('Profile updated successfully!');
 }
 
 function cancelEdit() {
+    $('#profileError').text('');
     loadProfileData();
     switchTab('orders');
 }
 
-function changePassword() {
+async function changePassword() {
     const currentPassword = $('#currentPassword').val();
     const newPassword = $('#newPassword').val();
     const confirmPassword = $('#confirmNewPassword').val();
 
-    const users = getUsers();
-    const user = users.find(u => u.studentId === getCurrentUser().studentId);
-
-    if (!user || user.password !== currentPassword) {
-        alert('Current password is incorrect');
-        return;
-    }
     if (newPassword.length < 6) {
         alert('New password must be at least 6 characters');
         return;
@@ -237,20 +215,26 @@ function changePassword() {
         alert('New passwords do not match');
         return;
     }
-
-    user.password = newPassword;
-    saveUsers(users);
+    try {
+        await api('/auth/password', {
+            method: 'POST',
+            body: { current_password: currentPassword, new_password: newPassword }
+        });
+    } catch (error) {
+        alert(error.message);
+        return;
+    }
     $('#currentPassword, #newPassword, #confirmNewPassword').val('');
     alert('Password updated successfully!');
 }
 
-// Avatar is generated from the student's name
+// Avatar is generated from the name
 function changeAvatar() {
     alert('Your avatar is created from your name. Change your name in Edit Profile to update it.');
 }
 
-function logout() {
+function confirmLogout() {
     if (confirm('Are you sure you want to logout?')) {
-        studentLogout();
+        logout();
     }
 }

@@ -41,10 +41,10 @@
     <div class="success-hero">
         <div class="container">
             <div class="success-icon">
-                <i class="fas fa-check"></i>
+                <i class="fas fa-check" id="headerIcon"></i>
             </div>
-            <h1>Order Placed Successfully!</h1>
-            <p>The cafeteria will accept it shortly &mdash; this page updates on its own.</p>
+            <h1 id="headerTitle">Your order</h1>
+            <p id="headerText">This page updates on its own.</p>
         </div>
     </div>
 
@@ -53,8 +53,8 @@
         <!-- Order Header -->
         <div class="order-header">
             <div class="order-id">
-                <h2 id="orderIdDisplay">Order #ORD12345</h2>
-                <span class="order-badge" id="orderStatus">Preparing</span>
+                <h2 id="orderIdDisplay">Order</h2>
+                <span class="order-badge" id="orderStatus">&hellip;</span>
             </div>
             <div class="order-actions">
                 <button class="btn-outline" onclick="downloadReceipt()">
@@ -78,53 +78,13 @@
         <!-- Status Timeline -->
         <div class="status-timeline">
             <h3 class="timeline-title">Order Progress</h3>
-            <div class="timeline">
-                <div class="timeline-item completed">
-                    <div class="timeline-icon">
-                        <i class="fas fa-check"></i>
-                    </div>
-                    <div class="timeline-connector"></div>
-                    <div class="timeline-content">
-                        <h4>Order Received</h4>
-                        <p>Your order has been confirmed</p>
-                        <span class="timeline-time" id="receivedTime">12:25 PM</span>
-                    </div>
-                </div>
-
-                <div class="timeline-item active">
-                    <div class="timeline-icon">
-                        <i class="fas fa-fire"></i>
-                    </div>
-                    <div class="timeline-connector"></div>
-                    <div class="timeline-content">
-                        <h4>Preparing</h4>
-                        <p>Our chefs are preparing your order</p>
-                        <span class="timeline-time">In Progress...</span>
-                    </div>
-                </div>
-
-                <div class="timeline-item pending">
-                    <div class="timeline-icon">
-                        <i class="fas fa-bell"></i>
-                    </div>
-                    <div class="timeline-connector"></div>
-                    <div class="timeline-content">
-                        <h4>Ready for Pickup</h4>
-                        <p>Your order is ready to collect</p>
-                        <span class="timeline-time">Pending</span>
-                    </div>
-                </div>
-
-                <div class="timeline-item pending">
-                    <div class="timeline-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="timeline-content">
-                        <h4>Completed</h4>
-                        <p>Order picked up successfully</p>
-                        <span class="timeline-time">Pending</span>
-                    </div>
-                </div>
+            <div class="closed-banner" id="closedBanner" hidden></div>
+            <div class="timeline" id="timeline" aria-live="polite"></div>
+            <div class="cancel-row" id="cancelRow" hidden>
+                <span id="cancelHint"></span>
+                <button class="btn-outline btn-cancel-order" onclick="cancelOrder()">
+                    <i class="fas fa-times"></i> Cancel order
+                </button>
             </div>
         </div>
 
@@ -135,11 +95,11 @@
                 <h3><i class="fas fa-user"></i> Customer Details</h3>
                 <div class="detail-row">
                     <span class="detail-label">Name</span>
-                    <span class="detail-value" id="customerName">John Doe</span>
+                    <span class="detail-value" id="customerName">&mdash;</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Student ID</span>
-                    <span class="detail-value" id="studentId">STU001</span>
+                    <span class="detail-value" id="studentId">&mdash;</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Phone</span>
@@ -156,11 +116,11 @@
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Status</span>
-                    <span class="detail-value" style="color: var(--accent-color);">Pending</span>
+                    <span class="detail-value" id="paymentStatus">&mdash;</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Amount</span>
-                    <span class="detail-value" id="totalAmount">Rs. 525</span>
+                    <span class="detail-value" id="totalAmount">&mdash;</span>
                 </div>
             </div>
         </div>
@@ -173,7 +133,7 @@
             </div>
             <div class="total-row">
                 <span>Total Amount</span>
-                <span id="grandTotal">Rs. 525</span>
+                <span id="grandTotal">&mdash;</span>
             </div>
         </div>
 

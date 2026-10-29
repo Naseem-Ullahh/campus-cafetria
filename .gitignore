@@ -1,0 +1,8 @@
+# Python
+server/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local settings (passwords) - share server/.env.example instead
+server/.env

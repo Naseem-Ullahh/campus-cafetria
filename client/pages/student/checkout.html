@@ -79,48 +79,24 @@
                         <i class="fas fa-user"></i> Your Details
                     </h3>
                     <form id="checkoutForm">
+                        <p class="form-hint mb-3">
+                            <i class="fas fa-id-card"></i> From your account &mdash;
+                            <a href="profile.html">update them in your profile</a> if they're wrong.
+                        </p>
+
                         <div class="form-group">
-                            <label class="form-label" for="fullName">
-                                Full Name <span class="required">*</span>
-                            </label>
-                            <input 
-                                type="text" 
-                                class="form-control" 
-                                id="fullName" 
-                                placeholder="Enter your full name"
-                                value=""
-                                required
-                            >
+                            <label class="form-label" for="fullName">Full Name</label>
+                            <input type="text" class="form-control" id="fullName" readonly>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="phoneNumber">
-                                Phone Number <span class="required">*</span>
-                            </label>
-                            <input 
-                                type="tel" 
-                                class="form-control" 
-                                id="phoneNumber" 
-                                placeholder="03XX XXXXXXX"
-                                inputmode="tel"
-                                autocomplete="tel"
-                                value=""
-                                required
-                            >
+                            <label class="form-label" for="phoneNumber">Phone Number</label>
+                            <input type="tel" class="form-control" id="phoneNumber" readonly>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="studentId">
-                                University ID <span class="required">*</span>
-                            </label>
-                            <input 
-                                type="text" 
-                                class="form-control" 
-                                id="studentId" 
-                                placeholder="e.g., STU001"
-                                value=""
-                                readonly
-                            >
+                            <label class="form-label" for="studentId">University ID</label>
+                            <input type="text" class="form-control" id="studentId" readonly>
                         </div>
 
                         <div class="form-group">
@@ -214,7 +190,7 @@
                     <span id="totalAmount">Rs. 0</span>
                 </div>
 
-                <button class="btn btn-success w-100" onclick="placeOrder()">
+                <button class="btn btn-success w-100" id="placeOrderBtn" onclick="placeOrder()">
     <i class="fas fa-check-circle"></i> Place Order
 </button>
 

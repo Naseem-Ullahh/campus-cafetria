@@ -79,7 +79,15 @@
             font-size: 32px;
             font-weight: 700;
             margin-bottom: 10px;
+            color: var(--on-dark);
         }
+
+        /* Same brick banner as the menu page; dark once an order is closed */
+        .success-hero { background: var(--brick) !important; }
+        .success-hero.is-closed { background: var(--dark) !important; }
+        .success-hero.is-closed .success-icon i { color: var(--error); }
+        .order-badge.is-closed { background: var(--error-tint); color: var(--error); }
+        .order-badge.is-done { background: var(--teal); color: var(--on-dark); }
 
         .success-hero p {
             font-size: 18px;
@@ -481,3 +489,35 @@
                 text-align: center;
             }
         }
+
+/* Rejected / cancelled / not collected */
+.closed-banner {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 28px;
+    padding: 16px 18px;
+    background: var(--error-tint);
+    border-left: 4px solid var(--error);
+    color: var(--text);
+}
+.closed-banner > i { color: var(--error); font-size: 22px; margin-top: 2px; }
+.closed-banner strong { display: block; margin-bottom: 2px; }
+.closed-banner p { margin: 4px 0 0; color: var(--text-muted); }
+
+/* Steps an order never reached because it was closed */
+.timeline-item.skipped { opacity: .45; }
+
+.cancel-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+}
+.btn-cancel-order { border-color: var(--error); color: var(--error); }
+.btn-cancel-order:hover { background: var(--error); border-color: var(--error); color: var(--on-dark); }

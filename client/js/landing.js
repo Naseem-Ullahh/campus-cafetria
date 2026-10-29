@@ -33,10 +33,14 @@ document.querySelectorAll('a[href^="#"]').forEach(link => {
 });
 
 // Logged-in visitors get a shortcut back to the menu
-(function welcomeBack() {
+(async function welcomeBack() {
     let user = null;
-    try { user = JSON.parse(localStorage.getItem('currentUser')); } catch (e) { /* ignore */ }
-    if (!user || !user.name) return;
+    try {
+        const response = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        if (response.ok) user = (await response.json()).user;
+    } catch (e) { /* server not reachable: just skip the card */ }
+    if (!user || user.role !== 'customer') return;
+    user.name = user.full_name;
 
     const card = document.createElement('div');
     card.className = 'welcome-back';

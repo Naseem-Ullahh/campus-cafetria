@@ -34,7 +34,7 @@
                 </a>
                 <div class="user-profile-nav">
                     <img src="" alt="User" class="user-avatar-nav" id="navAvatar">
-                    <span id="navUserName">Student</span>
+                    <span id="navUserName"></span>
                 </div>
             </div>
         </div>
@@ -52,23 +52,23 @@
                     </div>
                 </div>
                 <div class="profile-info">
-                    <h1 id="profileName">Student Name</h1>
+                    <h1 id="profileName">&nbsp;</h1>
                     <div class="profile-meta">
                         <div class="meta-item">
                             <i class="fas fa-id-card"></i>
-                            <span id="profileStudentId">STU12345</span>
+                            <span id="profileStudentId">&mdash;</span>
                         </div>
                         <div class="meta-item">
                             <i class="fas fa-envelope"></i>
-                            <span id="profileEmail">student@university.edu</span>
+                            <span id="profileEmail">&mdash;</span>
                         </div>
                         <div class="meta-item">
                             <i class="fas fa-phone"></i>
-                            <span id="profilePhone">+92 3XX XXXXXXX</span>
+                            <span id="profilePhone">&mdash;</span>
                         </div>
                         <div class="meta-item">
-                            <i class="fas fa-building"></i>
-                            <span id="profileDepartment">Computer Science</span>
+                            <i class="fas fa-user-tag"></i>
+                            <span id="profileUserType">&mdash;</span>
                         </div>
                     </div>
                 </div>
@@ -100,17 +100,17 @@
                     <i class="fas fa-heart"></i>
                 </div>
                 <div class="stat-details">
-                    <h3 id="favoriteItem">Burger</h3>
+                    <h3 id="favoriteItem">&mdash;</h3>
                     <p>Favorite Item</p>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon points">
-                    <i class="fas fa-star"></i>
+                    <i class="fas fa-check-double"></i>
                 </div>
                 <div class="stat-details">
-                    <h3 id="rewardPoints">0</h3>
-                    <p>Reward Points</p>
+                    <h3 id="collectedOrders">0</h3>
+                    <p>Orders Collected</p>
                 </div>
             </div>
         </div>
@@ -147,40 +147,25 @@
                 <form class="edit-form" onsubmit="updateProfile(event)">
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Full Name</label>
+                            <label for="editName">Full Name</label>
                             <input type="text" id="editName" required>
                         </div>
                         <div class="form-group">
-                            <label>Student ID</label>
+                            <label for="editStudentId">University ID</label>
                             <input type="text" id="editStudentId" disabled>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Email Address</label>
+                            <label for="editEmail">Email Address</label>
                             <input type="email" id="editEmail" required>
                         </div>
                         <div class="form-group">
-                            <label>Phone Number</label>
-                            <input type="tel" id="editPhone" required>
+                            <label for="editPhone">Phone Number</label>
+                            <input type="tel" id="editPhone" placeholder="03XX XXXXXXX" required>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Department</label>
-                            <select id="editDepartment" required>
-                                <option value="Computer Science">Computer Science</option>
-                                <option value="Engineering">Engineering</option>
-                                <option value="Business">Business Administration</option>
-                                <option value="Medicine">Medicine</option>
-                                <option value="Arts">Arts & Humanities</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Hostel/Address</label>
-                            <input type="text" id="editAddress" placeholder="Room 205, Boys Hostel">
-                        </div>
-                    </div>
+                    <p class="form-error" id="profileError" role="alert"></p>
                     <button type="submit" class="btn-primary">
                         <i class="fas fa-save"></i> Save Changes
                     </button>
@@ -233,7 +218,7 @@
             </div>
 
             <div class="logout-section">
-                <button class="btn-logout" onclick="logout()">
+                <button class="btn-logout" onclick="confirmLogout()">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
             </div>
