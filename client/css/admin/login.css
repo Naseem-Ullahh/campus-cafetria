@@ -1,0 +1,24 @@
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--dark) var(--login-backdrop) fixed;
+            font-family: var(--font-body);
+            padding: 16px;
+        }
+        .login-card {
+            width: 100%;
+            max-width: 380px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 32px;
+            box-shadow: var(--shadow-lift);
+        }
+        .login-card h4 { font-weight: 700; color: var(--dark); }
+        .btn-admin {
+            background: var(--dark);
+            color: var(--on-dark);
+            font-weight: 600;
+        }
+        .btn-admin:hover { background: var(--dark-hover); color: var(--on-dark); }

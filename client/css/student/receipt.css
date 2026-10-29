@@ -1,0 +1,18 @@
+        body {
+            background: var(--surface-2);
+            font-family: var(--font-body);
+        }
+        .receipt-card {
+            max-width: 560px;
+            margin: 40px auto;
+            background: var(--surface);
+            border-radius: 0;
+            padding: 32px;
+            box-shadow: var(--shadow-sm);
+        }
+        .success-icon { font-size: 56px; color: var(--dark); }
+        .meta { color: var(--text-muted); font-size: 14px; }
+        @media print {
+            .no-print { display: none !important; }
+            .receipt-card { box-shadow: none; margin: 0 auto; }
+        }

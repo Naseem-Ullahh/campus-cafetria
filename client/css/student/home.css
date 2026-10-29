@@ -1,0 +1,429 @@
+
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-light);
+            padding-top: 60px;
+        }
+
+        /* Navbar Styles */
+        .navbar {
+            background: var(--cream);
+            border-bottom: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            padding: 8px 0;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            font-size: 21px;
+            font-weight: 700;
+            color: var(--primary-color) !important;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .navbar-brand i {
+            color: var(--error);
+        }
+
+        .nav-link {
+            color: var(--text-dark) !important;
+            font-weight: 500;
+            padding: 8px 15px !important;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--secondary-color) !important;
+        }
+
+        .cart-badge {
+            position: relative;
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+
+        .cart-badge i {
+            font-size: 22px;
+            color: var(--primary-color);
+        }
+
+        .cart-count {
+            position: absolute;
+            top: 0;
+            right: 5px;
+            background: var(--brick);
+            color: var(--on-dark);
+            border-radius: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .user-dropdown {
+            cursor: pointer;
+        }
+
+        .user-dropdown img {
+            width: 35px;
+            height: 35px;
+            border-radius: 0;
+            border: 2px solid var(--secondary-color);
+        }
+
+        /* Hero Section */
+        .hero-section {
+            background: var(--brick);
+            color: var(--on-dark);
+            padding: 22px 0;
+            margin-bottom: 28px;
+        }
+
+        .hero-section h1 {
+            font-size: 32px;
+            color: var(--on-dark);
+            margin-bottom: 4px;
+        }
+
+        .hero-section p {
+            font-size: 16px;
+            opacity: 0.85;
+            margin: 0;
+        }
+
+        .nav-user-name {
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
+        /* Search Bar */
+        .search-section {
+            margin-bottom: 30px;
+        }
+
+        .search-wrapper {
+            position: relative;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px 50px 15px 50px;
+            border: 2px solid var(--border);
+            border-radius: 0;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            box-shadow: var(--focus-ring);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+
+        .filter-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--secondary-color);
+            color: var(--on-dark);
+            border: none;
+            padding: 8px 20px;
+            border-radius: 0;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn:hover {
+            background: var(--error-hover);
+        }
+
+        /* Category Filter */
+        .category-section {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .category-pills {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .category-pill {
+            padding: 12px 25px;
+            border: 2px solid var(--border);
+            border-radius: 0;
+            background: var(--surface);
+            color: var(--text-dark);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .category-pill:hover {
+            border-color: var(--secondary-color);
+            color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+
+        .category-pill.active {
+            background: var(--secondary-color);
+            color: var(--on-dark);
+            border-color: var(--secondary-color);
+        }
+
+        .category-pill i {
+            margin-right: 8px;
+        }
+
+        /* Food Cards */
+        .menu-section {
+            padding-bottom: 50px;
+        }
+
+        .section-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 25px;
+        }
+
+        .food-card {
+            background: var(--surface);
+            border-radius: 0;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            margin-bottom: 25px;
+            cursor: pointer;
+        }
+
+        .food-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .food-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            position: relative;
+        }
+
+        .food-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 12px;
+            border-radius: 0;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-available {
+            background: var(--success-color);
+            color: var(--on-dark);
+        }
+
+        .badge-unavailable {
+            background: var(--text-muted);
+            color: var(--on-dark);
+        }
+
+        .food-content {
+            padding: 20px;
+        }
+
+        .food-category {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .food-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 8px;
+        }
+
+        .food-description {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .food-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .food-price {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--brick);
+        }
+
+        .add-to-cart-btn {
+            background: var(--secondary-color);
+            color: var(--on-dark);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 0;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .add-to-cart-btn:hover {
+            background: var(--error-hover);
+            transform: scale(1.05);
+        }
+
+        .add-to-cart-btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .add-to-cart-btn i {
+            font-size: 16px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        /* Floating Cart Button (Mobile) */
+        .floating-cart {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--secondary-color);
+            color: var(--on-dark);
+            width: 60px;
+            height: 60px;
+            border-radius: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            z-index: 999;
+        }
+
+        .floating-cart i {
+            font-size: 24px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero-section h1 {
+                font-size: 28px;
+            }
+
+            .hero-section p {
+                font-size: 16px;
+            }
+
+            .search-input {
+                padding: 12px 40px 12px 40px;
+            }
+
+            .filter-btn {
+                padding: 6px 15px;
+                font-size: 14px;
+            }
+
+            .category-pills {
+                gap: 10px;
+            }
+
+            .category-pill {
+                padding: 10px 18px;
+                font-size: 14px;
+            }
+
+            .food-card {
+                margin-bottom: 20px;
+            }
+
+            .floating-cart {
+                display: flex;
+            }
+
+            .section-title {
+                font-size: 24px;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid var(--bg-light);
+            border-top: 4px solid var(--secondary-color);
+            border-radius: 0;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }

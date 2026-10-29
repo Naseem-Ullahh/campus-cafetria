@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Signals Std. Cafe'</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Fonts + shared theme (palette, buttons, focus states) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Cormorant+Garamond:wght@500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../css/theme.css">
+    
+    <link rel="stylesheet" href="../../css/student/checkout.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <a class="navbar-brand" href="home.html">
+                    <span class="brand-script">Signals Std. Cafe'</span>
+                </a>
+                <a href="cart.html" class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back to Cart
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="container">
+            <h1 class="page-title">
+                <i class="fas fa-credit-card"></i> Checkout
+            </h1>
+        </div>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="checkout-steps">
+        <div class="step completed">
+            <div class="step-circle"><i class="fas fa-check"></i></div>
+            <span class="step-label">Cart</span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step active">
+            <div class="step-circle">2</div>
+            <span class="step-label">Checkout</span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step">
+            <div class="step-circle">3</div>
+            <span class="step-label">Confirmation</span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Empty Cart Alert -->
+        <div class="alert alert-warning" id="emptyCartAlert">
+            <i class="fas fa-exclamation-triangle" style="font-size: 24px;"></i>
+            <div>
+                <strong>Your cart is empty!</strong><br>
+                Please add items to your cart before checking out.
+            </div>
+        </div>
+
+        <div class="checkout-container" id="checkoutContent" style="display: none;">
+            <!-- Left Section - Forms -->
+            <div>
+                <!-- Your Details -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-user"></i> Your Details
+                    </h3>
+                    <form id="checkoutForm">
+                        <div class="form-group">
+                            <label class="form-label" for="fullName">
+                                Full Name <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="fullName" 
+                                placeholder="Enter your full name"
+                                value=""
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="phoneNumber">
+                                Phone Number <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="tel" 
+                                class="form-control" 
+                                id="phoneNumber" 
+                                placeholder="03XX XXXXXXX"
+                                inputmode="tel"
+                                autocomplete="tel"
+                                value=""
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="studentId">
+                                University ID <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="studentId" 
+                                placeholder="e.g., STU001"
+                                value=""
+                                readonly
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="pickupTime">
+                                Pickup Time <span class="required">*</span>
+                            </label>
+                            <select class="form-control" id="pickupTime" required aria-describedby="pickupHint">
+                                <option value="">Select pickup time</option>
+                            </select>
+                            <small class="form-hint" id="pickupHint">15 minutes to 24 hours from now &middot; open 8 AM &ndash; 10 PM &middot; you can cancel up to 20 minutes before</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="specialInstructions">
+                                Special Instructions (Optional)
+                            </label>
+                            <textarea 
+                                class="form-control" 
+                                id="specialInstructions" 
+                                placeholder="Any special requests for your order..."
+                            ></textarea>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Payment Method -->
+                <div class="form-section" style="margin-top: 20px;">
+                    <h3 class="section-title">
+                        <i class="fas fa-wallet"></i> Payment Method
+                    </h3>
+                    
+                    <div class="payment-options" role="radiogroup" aria-label="Payment method">
+                        <div class="payment-option selected" onclick="selectPayment('Cash')">
+                            <input type="radio" name="payment" value="Cash" class="payment-radio" checked>
+                            <div class="payment-icon">
+                                <i class="fas fa-money-bill-wave" style="color: var(--dark);"></i>
+                            </div>
+                            <div class="payment-details">
+                                <h4>Cash at the counter</h4>
+                                <p>Pay when you collect your order</p>
+                            </div>
+                        </div>
+
+                        <div class="payment-option" onclick="selectPayment('Easypaisa')">
+                            <input type="radio" name="payment" value="Easypaisa" class="payment-radio">
+                            <div class="payment-icon">
+                                <i class="fas fa-mobile-alt" style="color: var(--dark);"></i>
+                            </div>
+                            <div class="payment-details">
+                                <h4>Easypaisa</h4>
+                                <p>Send the total to the cafeteria's Easypaisa account, then enter the transaction ID</p>
+                            </div>
+                        </div>
+
+                        <div class="payment-option" onclick="selectPayment('JazzCash')">
+                            <input type="radio" name="payment" value="JazzCash" class="payment-radio">
+                            <div class="payment-icon">
+                                <i class="fas fa-wallet" style="color: var(--teal);"></i>
+                            </div>
+                            <div class="payment-details">
+                                <h4>JazzCash</h4>
+                                <p>Send the total to the cafeteria's JazzCash account, then enter the transaction ID</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="transactionGroup" style="margin-top: 16px;" hidden>
+                        <label class="form-label" for="transactionRef">
+                            Transaction ID <span class="required">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="transactionRef" maxlength="50"
+                               autocomplete="off" placeholder="e.g. 0123456789" aria-describedby="transactionHint">
+                        <small class="form-hint" id="transactionHint">From your payment confirmation SMS. The cashier checks it before your order is handed over.</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Section - Order Summary -->
+            <div class="order-summary">
+                <h3 class="summary-title">Order Summary</h3>
+                
+                <div id="orderItems">
+                    <!-- Items will be loaded here -->
+                </div>
+
+                <div class="summary-divider"></div>
+
+
+                <div class="summary-total">
+                    <span>Total</span>
+                    <span id="totalAmount">Rs. 0</span>
+                </div>
+
+                <button class="btn btn-success w-100" onclick="placeOrder()">
+    <i class="fas fa-check-circle"></i> Place Order
+</button>
+
+
+                <div style="margin-top: 20px; text-align: center;">
+                    <p style="font-size: 13px; color: var(--text-muted);">
+                        <i class="fas fa-info-circle"></i> Wallet payments are verified by the cashier before pickup
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../../js/store.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="../../js/student/checkout.js"></script>
+</body>
+</html>

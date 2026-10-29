@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals Std. Cafe' - Pre-order your meal</title>
+
+    <!-- Fonts + shared theme -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Cormorant+Garamond:wght@500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/theme.css">
+
+    <link rel="stylesheet" href="css/landing.css">
+</head>
+<body>
+
+    <!-- Splash: shown once per visit while the page loads -->
+    <div class="splash" id="splash" aria-hidden="true">
+        <img class="splash-logo" src="assets/logo.png" alt="" onerror="this.remove()">
+        <div class="splash-name">Signals Std. Cafe'</div>
+        <div class="splash-line"></div>
+        <div class="splash-tag">Campus cafeteria &middot; pre-order &amp; pick up</div>
+    </div>
+
+    <!-- 1. Hero -->
+    <section class="hero" id="home">
+        <img class="hero-bg" src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1920&q=75&fit=crop" alt="" onerror="this.remove()">
+
+        <div class="info-bar page-pad">
+            <span>
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+                Campus cafeteria, ground floor
+            </span>
+            <span>
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                Pay cash or Easypaisa / JazzCash
+            </span>
+        </div>
+
+        <header class="site-header page-pad">
+            <a href="index.html" class="logo-text">Signals Std. Cafe'</a>
+            <nav class="site-nav" aria-label="Main">
+                <a href="#home" class="active" aria-current="page">Home</a>
+                <a href="#how">How it works</a>
+                <a href="#contact">Contact</a>
+                <a href="pages/student/login.html" class="btn-outline-cream">Sign in</a>
+            </nav>
+        </header>
+
+        <div class="hero-content page-pad">
+            <p class="eyebrow">Welcome to Signals</p>
+            <h1>Skip the queue. Pre-order your meal.</h1>
+            <p class="hero-text">Order from the campus cafeteria ahead of time, pick a time, and collect your food when it's ready.</p>
+            <div class="hero-buttons">
+                <a href="pages/student/login.html" class="btn-cta">Order now</a>
+                <a href="#how" class="btn-ghost">How it works</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. How it works -->
+    <section class="how page-pad" id="how">
+        <div class="section-heading">
+            <span class="script-kicker">simple as</span>
+            <h2>How it works</h2>
+        </div>
+        <div class="steps">
+            <article class="step-card">
+                <span class="step-number">01</span>
+                <h3>Order ahead</h3>
+                <p>Choose your meal from the cafeteria menu.</p>
+            </article>
+            <article class="step-card">
+                <span class="step-number">02</span>
+                <h3>Pick a time</h3>
+                <p>Select when you want to collect it.</p>
+            </article>
+            <article class="step-card">
+                <span class="step-number">03</span>
+                <h3>Collect and pay</h3>
+                <p>Pick up when it's ready. Pay cash or with Easypaisa / JazzCash.</p>
+            </article>
+        </div>
+    </section>
+
+    <!-- 3. Footer -->
+    <footer class="site-footer page-pad" id="contact">
+        <span class="footer-logo">Signals Std. Cafe'</span>
+        <div class="footer-meta">
+            <span class="footer-pay">Cash &middot; Easypaisa &middot; JazzCash</span>
+            <a href="mailto:info@campuscafeteria.edu">Get in touch</a>
+        </div>
+    </footer>
+
+    <script src="js/landing.js"></script>
+</body>
+</html>

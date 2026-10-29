@@ -1,0 +1,216 @@
+/* =====================================================================
+   Signals Std. Cafe' - shared theme
+   Loaded on every page BEFORE the page's own stylesheet.
+   Change a colour here and it changes everywhere.
+   ===================================================================== */
+
+:root {
+    /* ---- Brand palette (from the cafe itself) ---- */
+    --cream:        #F5F5DC;    /* cream walls: page background */
+    --yellow:       #F3E3A3;    /* pastel yellow: cards, menu tiles */
+    --brick:        #9A4F3C;    /* brick wall: headings, home banner */
+    --dark:         #2B1D16;    /* marble & wood: text, navbar, buttons, footer */
+    --teal:         #2F8F86;    /* teal panel: icons, small highlights */
+    --amber:        #FFB169;    /* amber lights: Order now / Sign in only */
+    --muted:        #8A8178;    /* gray chairs: secondary UI, borders */
+    --error:        #A9110D;    /* form errors and destructive actions only */
+
+    /* ---- Shades derived from the palette ---- */
+    --dark-hover:   #1A110C;
+    --dark-light:   #3D2B21;
+    --dark-tint:    #E9E0CC;
+    --brick-hover:  #7E3F30;
+    --teal-text:    #1F6F68;    /* teal dark enough for readable link text */
+    --teal-light:   #5FC4BA;    /* teal for links on dark backgrounds */
+    --muted-text:   #6E665E;    /* gray dark enough for readable text */
+    --muted-tint:   #ECE6D6;
+    --amber-hover:  #F59A45;
+    --amber-tint:   #FFE9D4;
+    --amber-text:   #8A4B0F;    /* amber dark enough for readable text */
+    --error-hover:  #8A0E0B;
+    --error-tint:   #F5D9D6;
+
+    /* ---- Surfaces & text ---- */
+    --surface:      var(--yellow);  /* cards, panels */
+    --surface-2:    #EBD993;        /* subtle fills inside cards */
+    --field:        #FFFCEF;        /* form inputs */
+    --border:       #D8CA9C;
+    --text:         var(--dark);
+    --text-muted:   var(--muted-text);
+    --on-dark:      var(--cream);   /* text on dark / brick */
+
+    /* ---- Shape, depth, type ---- */
+    --radius-sm:    0;
+    --radius:       0;
+    --shadow-sm:    0 1px 2px rgba(43, 29, 22, 0.08);
+    --shadow-md:    0 4px 14px rgba(43, 29, 22, 0.12);
+    --focus-ring:   0 0 0 2px rgba(47, 143, 134, 0.55);
+    --font-body:    'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-script:  'Great Vibes', cursive;
+    --page-pad:     clamp(20px, 4vw, 56px);
+
+    /* ---- Names the page stylesheets already use ---- */
+    --primary-color:   var(--dark);
+    --secondary-color: var(--dark);    /* actions, active states */
+    --accent-color:    var(--amber);
+    --success-color:   var(--teal-text);
+    --info-color:      var(--muted-text);
+    --warning-color:   var(--amber-text);
+    --bg-light:        var(--cream);
+    --text-dark:       var(--text);
+    --sidebar-bg:      var(--dark);
+    --sidebar-hover:   var(--dark-light);
+
+    /* ---- Square corners everywhere, Bootstrap included ---- */
+    --bs-border-radius: 0;
+    --bs-border-radius-sm: 0;
+    --bs-border-radius-lg: 0;
+    --bs-border-radius-xl: 0;
+    --bs-border-radius-xxl: 0;
+    --bs-border-radius-pill: 0;
+}
+
+/* Admin pages and the login windows use soft corners (the public pages stay square) */
+.soft-ui {
+    --radius-sm: 6px;
+    --radius: 10px;
+    --bs-border-radius: 6px;
+    --bs-border-radius-sm: 4px;
+    --bs-border-radius-lg: 10px;
+    --bs-border-radius-xl: 12px;
+    --bs-border-radius-pill: 999px;
+    --shadow-lift: 0 0 0 1px rgba(245, 245, 220, 0.06), 0 18px 40px -10px rgba(0, 0, 0, 0.55), 0 40px 80px -24px rgba(0, 0, 0, 0.5);
+    --login-backdrop: radial-gradient(ellipse 70% 60% at 50% 45%, #5A4132 0%, #3A281E 45%, var(--dark) 80%);
+}
+.soft-ui .card, .soft-ui .modal-content, .soft-ui .dropdown-menu, .soft-ui .table-responsive { border-radius: var(--radius); }
+.soft-ui .btn, .soft-ui .form-control, .soft-ui .form-select, .soft-ui .badge, .soft-ui .alert { border-radius: var(--radius-sm); }
+
+/* ---- Base ---- */
+body {
+    font-family: var(--font-body);
+    background: var(--cream);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3,
+.navbar-brand, .logo {
+    font-family: var(--font-display);
+    font-weight: 600;
+}
+h1, h2 { color: var(--brick); }
+h1, h2, h3, h4, h5, h6 { font-variant-numeric: lining-nums; }
+
+/* The cafe's name, written in script wherever it appears */
+.brand-script {
+    font-family: var(--font-script);
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: 0;
+    line-height: 1;
+}
+.navbar-brand .brand-script, .sidebar-brand .brand-script { font-size: 1.45em; }
+.brand-tag {
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    opacity: .75;
+}
+
+a { color: var(--teal-text); }
+a:hover { color: var(--dark); }
+
+::selection { background: var(--amber); color: var(--dark); }
+
+/* Visible keyboard focus everywhere (mouse clicks don't show it) */
+:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+}
+
+/* ---- Bootstrap components in the palette ---- */
+.btn { border-radius: var(--radius-sm); font-weight: 600; }
+
+.btn-primary, .btn-success, .btn-dark {
+    background: var(--dark);
+    border-color: var(--dark);
+    color: var(--on-dark);
+}
+.btn-primary:hover, .btn-success:hover, .btn-dark:hover,
+.btn-primary:focus, .btn-success:focus, .btn-dark:focus {
+    background: var(--dark-hover);
+    border-color: var(--dark-hover);
+    color: var(--on-dark);
+}
+.btn-danger { background: var(--error); border-color: var(--error); color: var(--on-dark); }
+.btn-danger:hover { background: var(--error-hover); border-color: var(--error-hover); color: var(--on-dark); }
+.btn-warning { background: var(--amber); border-color: var(--amber); color: var(--text); }
+.btn-warning:hover { background: var(--amber-hover); border-color: var(--amber-hover); color: var(--text); }
+.btn-secondary { background: var(--muted); border-color: var(--muted); color: var(--text); }
+.btn-outline-primary, .btn-outline-secondary {
+    color: var(--dark);
+    border-color: var(--dark);
+    background: transparent;
+}
+.btn-outline-primary:hover, .btn-outline-secondary:hover {
+    background: var(--dark);
+    color: var(--on-dark);
+}
+
+.form-control, .form-select {
+    border-color: var(--border);
+    border-radius: var(--radius-sm);
+    background-color: var(--field);
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--teal);
+    box-shadow: var(--focus-ring);
+}
+.form-check-input:checked { background-color: var(--dark); border-color: var(--dark); }
+
+.badge.bg-success   { background: var(--dark) !important; color: var(--on-dark) !important; }
+.badge.bg-danger    { background: var(--error) !important;   color: var(--on-dark) !important; }
+.badge.bg-warning   { background: var(--amber) !important; color: var(--text) !important; }
+.badge.bg-info      { background: var(--teal) !important; color: var(--cream) !important; }
+.badge.bg-secondary { background: var(--muted) !important; color: var(--text) !important; }
+
+.table-dark, .table > .table-dark, .table thead.table-dark th {
+    --bs-table-bg: var(--dark);
+    --bs-table-color: var(--on-dark);
+    background: var(--dark);
+    color: var(--on-dark);
+}
+.table-striped > tbody > tr:nth-of-type(odd) > * { --bs-table-bg-type: var(--surface-2); }
+
+.card, .modal-content, .dropdown-menu {
+    background: var(--surface);
+    border-color: var(--border);
+}
+.modal-header.bg-primary, .modal-header.bg-info { background: var(--dark) !important; color: var(--on-dark); }
+.dropdown-item:active { background: var(--dark); }
+.btn-link { color: var(--teal-text); }
+.btn-link:hover { color: var(--dark-hover); }
+.table-light, .table > thead.table-light th { --bs-table-bg: var(--surface-2); --bs-table-color: var(--text); }
+.text-primary { color: var(--dark) !important; }
+.text-success { color: var(--teal-text) !important; }
+.text-danger  { color: var(--error) !important; }
+.text-muted   { color: var(--text-muted) !important; }
+.text-warning { color: var(--amber-text) !important; }
+.bg-light     { background: var(--surface-2) !important; }
+.bg-primary, .bg-success { background-color: var(--dark) !important; }
+.bg-info      { background-color: var(--teal) !important; }
+.bg-warning   { background-color: var(--amber) !important; }
+.bg-danger    { background-color: var(--error) !important; }
+
+/* Respect users who ask their system for less motion (animations stay for everyone else) */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu - Signals Std. Cafe'</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Fonts + shared theme (palette, buttons, focus states) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Cormorant+Garamond:wght@500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../css/theme.css">
+    
+    <link rel="stylesheet" href="../../css/student/home.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <a class="navbar-brand" href="home.html">
+                    <span class="brand-script">Signals Std. Cafe'</span>
+                </a>
+                <div class="d-flex align-items-center gap-3">
+                    <a href="home.html" class="nav-link">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                    <a href="order-status.html" class="nav-link">
+                        <i class="fas fa-clock"></i> Orders
+                    </a>
+                    <div class="cart-badge" onclick="window.location.href='cart.html'">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="cart-count" id="cartCount">0</span>
+                    </div>
+                    <div class="dropdown user-dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle" style="font-size: 22px;"></i>
+                            <span class="nav-user-name" id="navUserName"></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+                            <li><a class="dropdown-item" href="profile.html"><i class="fas fa-history"></i> Order History</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="studentLogout(); return false;"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <h1>Welcome, <span id="welcomeName">there</span>!</h1>
+            <p>Order ahead and pick up when it's ready &mdash; no queue.</p>
+        </div>
+    </section>
+
+    <!-- Search Section -->
+    <section class="search-section">
+        <div class="container">
+            <div class="search-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput" 
+                    placeholder="Search for food items..."
+                    oninput="searchFood()"
+                >
+                <button class="filter-btn" onclick="toggleFilters()">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Category Filter -->
+    <section class="category-section">
+        <div class="container">
+            <div class="category-pills">
+                <div class="category-pill active" onclick="filterByCategory('all')">
+                    <i class="fas fa-th"></i> All
+                </div>
+                <div class="category-pill" onclick="filterByCategory('breakfast')">
+                    <i class="fas fa-mug-hot"></i> Breakfast
+                </div>
+                <div class="category-pill" onclick="filterByCategory('lunch')">
+                    <i class="fas fa-hamburger"></i> Lunch
+                </div>
+                <div class="category-pill" onclick="filterByCategory('snacks')">
+                    <i class="fas fa-cookie"></i> Snacks
+                </div>
+                <div class="category-pill" onclick="filterByCategory('beverages')">
+                    <i class="fas fa-glass-water"></i> Beverages
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Menu Section -->
+    <section class="menu-section">
+        <div class="container">
+            <h2 class="section-title">Our Menu</h2>
+            <div class="row" id="menuContainer">
+                <!-- Food cards will be dynamically loaded here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Floating Cart Button (Mobile) -->
+    <div class="floating-cart" onclick="window.location.href='cart.html'">
+        <i class="fas fa-shopping-cart"></i>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../../js/store.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="../../js/student/home.js"></script>
+</body>
+</html>

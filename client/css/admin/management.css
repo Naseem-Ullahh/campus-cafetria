@@ -1,0 +1,163 @@
+/* Shared styles for the admin Menu Management and Orders Management pages */
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+body{
+  font-family: var(--font-body);
+}
+
+.admin-title{
+  font-weight:700;
+  color:var(--dark);
+}
+/* Admin-specific styles for Menu Management */
+.admin-body {
+    background: var(--cream);
+    min-height: 100vh;
+    color: var(--text);
+}
+
+.card {
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.table th {
+    background-color: var(--muted);
+    color: var(--on-dark);
+    font-weight: bold;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.btn-success {
+    background: var(--dark);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-sm);
+}
+
+.modal-content {
+    border-radius: var(--radius);
+    border: none;
+}
+
+.modal-header {
+    border-radius: var(--radius);
+}
+
+#imagePreview {
+    transition: opacity 0.3s ease;
+}
+
+#imagePreview:hover {
+    opacity: 0.8;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .d-flex {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .input-group {
+        width: 100% !important;
+    }
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+}
+/* Admin-specific styles for Orders Management */
+.admin-body {
+    background: var(--cream);
+    min-height: 100vh;
+    color: var(--text);
+}
+
+.card {
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.table th {
+    background-color: var(--muted);
+    color: var(--on-dark);
+    font-weight: bold;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5em 0.75em;
+    border-radius: var(--radius-sm);
+}
+
+.badge.bg-danger { background-color: var(--error) !important; } /* Pending */
+.badge.bg-warning { background-color: var(--amber) !important; } /* Preparing */
+.badge.bg-info { background-color: var(--muted) !important; } /* Ready */
+.badge.bg-success { background-color: var(--dark) !important; } /* Delivered */
+
+.btn-primary {
+    background: var(--muted);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-sm);
+}
+
+.modal-content {
+    border-radius: var(--radius);
+    border: none;
+}
+
+.modal-header {
+    border-radius: var(--radius);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .d-flex {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .input-group {
+        width: 100% !important;
+    }
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+    .table td, .table th {
+        padding: 0.5rem;
+    }
+}
+
+@media(max-width:768px){
+  h1,h2,h3{
+    font-size:90%;
+  }
+}
