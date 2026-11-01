@@ -11,31 +11,23 @@ database/   MySQL 8 schema, triggers, procedures, views, seed data and tests
 
 ## Run it
 
-You need **Python 3.10+** and **MySQL 8**.
+You need **Python 3.10+** and **MySQL 8**. Step-by-step instructions for Windows and Linux,
+including installing MySQL and fixing common errors, are in **[SETUP.md](SETUP.md)**. In short:
 
 ```bash
-# 1. Python packages (once)
 python3 -m venv server/.venv
 server/.venv/bin/pip install -r server/requirements.txt
-#    Windows: server\.venv\Scripts\pip install -r server\requirements.txt
-
-# 2. Settings: copy the example and put in your MySQL password
-cp server/.env.example server/.env
-
-# 3. Create the database (or run database/01-05 in MySQL Workbench)
-server/.venv/bin/python server/init_db.py
-
-# 4. Start the server
-server/.venv/bin/python server/app.py
+cp server/.env.example server/.env          # then put your MySQL password in server/.env
+server/.venv/bin/python server/init_db.py   # creates the database with demo data
+server/.venv/bin/python server/app.py       # then open http://127.0.0.1:5000
 ```
-
-Open **http://127.0.0.1:5000**. Always use this address: the pages need the API, so opening the HTML files directly won't work.
 
 ## Accounts
 
 | Who | Login page | ID | Password | Lands on |
 |---|---|---|---|---|
-| Student | Sign in | `STU001` | `student123` | Menu |
+| Student | Sign in | `STU001` (or `STU002`) | `student123` | Menu |
+| Faculty customer | Sign in | `EMP-1001` | `faculty123` | Menu |
 | Manager (admin) | Staff login | `EMP-0001` | `Admin@123` | Dashboard |
 | Cashier | Staff login | `EMP-0002` | `Cashier@123` | Incoming orders |
 | Chef | Staff login | `EMP-0003` | `Kitchen@123` | Kitchen |
@@ -77,10 +69,11 @@ Prices and totals always come from the database. The browser only sends item IDs
 
 ## Tests
 
-```bash
-# Database rules (114 checks) - on a fresh install
-mysql -u root -p campus_cafeteria < database/tests/rule_tests.sql
+377 tests: database rules, Python and JavaScript unit tests, every page with a faked server, the API,
+regression tests (simultaneous orders and payments, time rules, security, a random simulation) and
+whole workflows in real browsers. See [SETUP.md](SETUP.md#running-the-tests-optional); in short:
 
-# API (16 tests) - WARNING: drops and reinstalls campus_cafeteria
-CAFETERIA_TEST_DB=1 server/.venv/bin/pytest server/tests -q
+```bash
+(cd tests && npm install)    # once; also needs Node.js and Chrome
+bash tests/run_all.sh        # with the server running - WARNING: reinstalls the database
 ```
