@@ -346,30 +346,9 @@
             color: var(--on-dark);
         }
 
-        /* Promo Code */
-        .promo-section {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 2px solid var(--bg-light);
-        }
 
-        .promo-input-group {
-            display: flex;
-            gap: 10px;
-        }
 
-        .promo-input {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid var(--border);
-            border-radius: 0;
-            font-size: 14px;
-        }
 
-        .promo-input:focus {
-            outline: none;
-            border-color: var(--secondary-color);
-        }
 
         .apply-btn {
             padding: 12px 20px;

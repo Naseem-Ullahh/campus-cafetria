@@ -89,6 +89,13 @@ function render(orders) {
                 fresh.dataset.signature = signature;
                 fresh.innerHTML = cardHtml(order);
                 if (knownOrderIds && !knownOrderIds.has(order.order_id)) fresh.classList.add('is-new');
+                // Keep a reject reason someone is halfway through typing
+                const openForm = card && card.querySelector('.reject-form:not([hidden])');
+                if (openForm) {
+                    const form = fresh.querySelector('.reject-form');
+                    form.hidden = false;
+                    form.reason.value = openForm.reason.value;
+                }
                 if (card) card.replaceWith(fresh); else container.appendChild(fresh);
                 card = fresh;
             }

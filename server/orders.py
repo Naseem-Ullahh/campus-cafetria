@@ -3,6 +3,7 @@ import time
 
 from flask import Blueprint, g, jsonify
 
+import config
 from auth import STAFF_ROLES, login_required
 from db import ApiError, call, execute, query, query_one
 from helpers import body, pk_datetime, text
@@ -84,6 +85,8 @@ def place_order():
         raise ApiError(f'You can order at most {MAX_QUANTITY} of one item')
 
     pickup = pk_datetime(data.get('pickup_time'), 'Pickup time')
+    if not config.OPENING_HOUR <= pickup.hour < config.CLOSING_HOUR:
+        raise ApiError('The cafeteria is open 8 AM to 10 PM - choose a pickup time in those hours')
     method = data.get('payment_method')
     reference = text(data, 'transaction_reference', 'Transaction ID', required=False, max_length=50)
     if reference and len(reference) < 6:

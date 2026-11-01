@@ -6,6 +6,7 @@ The stored procedures and triggers raise readable errors with SIGNAL
 that exact message.
 """
 import re
+import time
 
 import pymysql
 from flask import g
@@ -16,6 +17,10 @@ ER_DUP_ENTRY = 1062
 ER_CHECK_CONSTRAINT = 3819
 ER_ROW_IS_REFERENCED = 1451
 ER_SIGNAL = 1644            # raised by SIGNAL SQLSTATE '45000' in our SQL
+ER_NO_REFERENCED_ROW = 1452
+ER_LOCK_WAIT_TIMEOUT = 1205
+ER_DEADLOCK = 1213
+RETRIES = 3                 # attempts for a statement that hit a deadlock
 
 DUPLICATE_MESSAGES = {
     'uq_payment_reference': 'This transaction ID has already been used for another order',
@@ -63,17 +68,27 @@ def _translate(error):
         return ApiError('One of the values is not allowed', 400)
     if code == ER_ROW_IS_REFERENCED:
         return ApiError('This record is used elsewhere and cannot be deleted', 409)
+    if code == ER_NO_REFERENCED_ROW:
+        return ApiError('Something in this request no longer exists (e.g. an item not on the menu)', 400)
+    if code in (ER_DEADLOCK, ER_LOCK_WAIT_TIMEOUT):
+        return ApiError('The cafeteria is very busy right now - please try again', 503)
     return None
 
 
 def _run(sql, args):
-    cursor = get_db().cursor()
-    try:
-        cursor.execute(sql, args)
-    except pymysql.MySQLError as error:
-        cursor.close()
-        raise _translate(error) or error
-    return cursor
+    for attempt in range(1, RETRIES + 1):
+        cursor = get_db().cursor()
+        try:
+            cursor.execute(sql, args)
+            return cursor
+        except pymysql.MySQLError as error:
+            cursor.close()
+            # MySQL undid the whole transaction (our procedures roll back on any
+            # error), so running the same statement again is safe
+            if error.args[0] == ER_DEADLOCK and attempt < RETRIES:
+                time.sleep(0.05 * attempt)
+                continue
+            raise _translate(error) or error
 
 
 def query(sql, args=None):

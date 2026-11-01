@@ -31,6 +31,7 @@ BEGIN
     DECLARE v_is_active BOOLEAN;
     DECLARE v_dues DECIMAL(10,2);
     DECLARE v_msg VARCHAR(255);
+    DECLARE v_locked INT;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -78,6 +79,16 @@ BEGIN
     END IF;
 
     START TRANSACTION;
+
+    -- Lock the menu rows we are about to sell, in item order, BEFORE reading
+    -- them. Otherwise two customers ordering the same item at the same moment
+    -- both take a shared read lock, then both wait to upgrade it for the stock
+    -- update - a deadlock. Locking first makes the second order simply wait.
+    SELECT COUNT(*) INTO v_locked
+      FROM Menu_Items
+     WHERE item_id IN (SELECT item_id FROM Cart WHERE user_id = p_user_id)
+     ORDER BY item_id
+       FOR UPDATE;
 
     -- Copy the cart with current prices first. Inserting straight from a
     -- SELECT on Menu_Items would fail: the stock trigger updates Menu_Items,

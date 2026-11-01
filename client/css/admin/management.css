@@ -117,7 +117,7 @@ body{
 .badge.bg-danger { background-color: var(--error) !important; } /* Pending */
 .badge.bg-warning { background-color: var(--amber) !important; } /* Preparing */
 .badge.bg-info { background-color: var(--muted) !important; } /* Ready */
-.badge.bg-success { background-color: var(--dark) !important; } /* Delivered */
+.badge.bg-success { background-color: var(--dark) !important; } /* Completed */
 
 .btn-primary {
     background: var(--muted);
@@ -161,3 +161,6 @@ body{
     font-size:90%;
   }
 }
+
+/* Tables scroll inside the card on small screens */
+.card-body { overflow-x: auto; }

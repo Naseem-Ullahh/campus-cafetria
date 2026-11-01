@@ -26,8 +26,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const orderId = new URLSearchParams(location.search).get('order') || localStorage.getItem('currentOrderId');
     if (!orderId) {
-        showToast('No order selected', 'error');
-        setTimeout(() => { window.location.href = 'home.html'; }, 1500);
+        // No order chosen: show the order history instead
+        window.location.href = 'profile.html';
         return;
     }
 

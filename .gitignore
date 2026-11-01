@@ -6,3 +6,6 @@ __pycache__/
 
 # Local settings (passwords) - share server/.env.example instead
 server/.env
+
+# Test tooling
+tests/node_modules/

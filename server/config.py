@@ -18,6 +18,10 @@ load_dotenv(SERVER_DIR / '.env')
 PKT = timezone(timedelta(hours=5))
 MYSQL_TIME_ZONE = '+05:00'
 
+# Pickup times must fall inside opening hours (the checkout page uses the same: 8 AM - 10 PM)
+OPENING_HOUR = 8
+CLOSING_HOUR = 22
+
 DB = {
     'host': os.getenv('DB_HOST', '127.0.0.1'),
     'port': int(os.getenv('DB_PORT', '3306')),

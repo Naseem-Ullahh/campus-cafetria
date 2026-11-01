@@ -1,0 +1,13 @@
+{
+  "name": "campus-cafeteria-tests",
+  "private": true,
+  "description": "Unit, component and regression tests for the website. Needs Google Chrome or Chromium (set CHROME_PATH if it isn't /usr/bin/google-chrome).",
+  "scripts": {
+    "unit": "node --test \"unit/*.test.js\"",
+    "component": "node --test --test-concurrency=1 --test-timeout=180000 \"component/*.test.js\"",
+    "regression": "node --test --test-concurrency=1 --test-timeout=180000 \"regression/*.test.js\""
+  },
+  "devDependencies": {
+    "puppeteer-core": "22.15.0"
+  }
+}

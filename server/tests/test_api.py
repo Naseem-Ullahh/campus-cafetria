@@ -62,13 +62,29 @@ def in_minutes(minutes):
     return (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat().replace('+00:00', 'Z')
 
 
+def pickup_in(minutes):
+    """At least `minutes` ahead, moved into opening hours (8 AM - 10 PM) if needed,
+    so the tests pass at any time of day."""
+    pkt = timezone(timedelta(hours=5))
+    when = datetime.now(pkt).replace(second=0, microsecond=0) + timedelta(minutes=minutes)
+    if when.hour < 8:
+        when = when.replace(hour=8, minute=0)
+    elif when.hour >= 22:
+        when = (when + timedelta(days=1)).replace(hour=8, minute=0)
+    return when.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
+def shift(iso, minutes):
+    return (datetime.fromisoformat(iso) + timedelta(minutes=minutes)).isoformat()
+
+
 def item_id(client, name):
     return next(i['item_id'] for i in client.get('/api/menu').json['items'] if i['item_name'] == name)
 
 
 def place(client, items, minutes=60, method='Cash', reference=None):
     return client.post('/api/orders', json={
-        'items': items, 'pickup_time': in_minutes(minutes),
+        'items': items, 'pickup_time': pickup_in(minutes),
         'payment_method': method, 'transaction_reference': reference})
 
 
@@ -123,7 +139,7 @@ def test_order_is_priced_by_the_server(ali):
     burger = item_id(ali, 'Classic Burger')
     response = ali.post('/api/orders', json={
         'items': [{'item_id': burger, 'quantity': 2, 'price': 1}], 'total': 2,
-        'pickup_time': in_minutes(45), 'payment_method': 'Cash'})
+        'pickup_time': pickup_in(45), 'payment_method': 'Cash'})
     assert response.status_code == 201, response.json
     order = response.json['order']
     assert order['total_amount'] == 240 and order['status'] == 'Received'
@@ -133,7 +149,9 @@ def test_order_is_priced_by_the_server(ali):
 def test_order_errors_come_from_the_database(ali):
     juice = item_id(ali, 'Orange Juice')
     assert 'Only 8 Orange Juice left' in place(ali, [{'item_id': juice, 'quantity': 9}]).json['error']
-    assert 'at least 15 minutes' in place(ali, [{'item_id': juice, 'quantity': 1}], minutes=5).json['error']
+    too_soon = ali.post('/api/orders', json={'items': [{'item_id': juice, 'quantity': 1}],
+                                             'pickup_time': in_minutes(5), 'payment_method': 'Cash'}).json['error']
+    assert 'at least 15 minutes' in too_soon or '8 AM to 10 PM' in too_soon
     assert 'Cash, Easypaisa or JazzCash' in place(ali, [{'item_id': juice, 'quantity': 1}], method='Card').json['error']
     assert place(ali, []).json['error'] == 'Your cart is empty'
 
@@ -162,13 +180,14 @@ def test_customers_cannot_use_staff_routes(ali):
 
 def test_manager_accepts_chef_cooks_cashier_hands_over(fatima, cashier, chef):
     pizza = item_id(fatima, 'Margherita Pizza')
-    order_id = place(fatima, [{'item_id': pizza, 'quantity': 1}], minutes=40).json['order']['order_id']
+    placed = place(fatima, [{'item_id': pizza, 'quantity': 1}], minutes=40).json['order']
+    order_id, pickup_time = placed['order_id'], placed['requested_pickup_time']
 
     assert order_id in [o['order_id'] for o in cashier.get('/api/staff/incoming').json['orders']]
     assert chef.post(f'/api/staff/orders/{order_id}/accept', json={}).status_code == 403
-    too_late = cashier.post(f'/api/staff/orders/{order_id}/accept', json={'estimated_ready_time': in_minutes(90)})
+    too_late = cashier.post(f'/api/staff/orders/{order_id}/accept', json={'estimated_ready_time': shift(pickup_time, 30)})
     assert 'ready by the requested pickup time' in too_late.json['error']
-    accepted = cashier.post(f'/api/staff/orders/{order_id}/accept', json={'estimated_ready_time': in_minutes(30)})
+    accepted = cashier.post(f'/api/staff/orders/{order_id}/accept', json={'estimated_ready_time': shift(pickup_time, -10)})
     assert accepted.json['order']['status'] == 'Accepted'
     assert 'Only new orders' in cashier.post(f'/api/staff/orders/{order_id}/accept', json={}).json['error']
 

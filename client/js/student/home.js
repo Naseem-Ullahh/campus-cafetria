@@ -205,11 +205,6 @@ function showToast(message) {
     }, 3000);
 }
 
-// Toggle filters (placeholder)
-function toggleFilters() {
-    alert('Advanced filters coming soon!');
-}
-
 // Add animations
 const style = document.createElement('style');
 style.textContent = `

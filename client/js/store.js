@@ -27,7 +27,11 @@ async function api(path, { method = 'GET', body } = {}) {
     try {
         response = await fetch('/api' + path, options);
     } catch (e) {
-        throw new ApiError('Cannot reach the server. Check your connection and try again.', 0);
+        // Opened as a file, or from a server that isn't Flask: the API isn't there
+        const hint = location.protocol === 'file:' || location.port !== '5000'
+            ? ' Make sure the server is running (server/app.py) and open the site at http://127.0.0.1:5000'
+            : ' Check your connection and try again.';
+        throw new ApiError('Cannot reach the server.' + hint, 0);
     }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {

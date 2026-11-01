@@ -564,6 +564,11 @@
 
         /* Responsive */
         @media (max-width: 768px) {
+            .navbar-menu { gap: 14px; }
+            .navbar-menu a span:not(.cart-badge), #navUserName { display: none; }
+            .profile-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+            .profile-tabs .tab-btn { flex: 0 0 auto; white-space: nowrap; }
+
             .profile-header-content {
                 flex-direction: column;
                 text-align: center;
