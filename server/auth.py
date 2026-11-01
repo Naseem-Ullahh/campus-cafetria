@@ -15,6 +15,7 @@ from helpers import body, email, pakistani_mobile, text
 bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
 STAFF_ROLES = ('admin', 'cashier', 'kitchen')
+CUSTOMER_TYPES = ('student', 'gc', 'army', 'faculty', 'staff')
 USER_COLUMNS = 'user_id, university_id, full_name, email, phone, user_type, role, created_at'
 
 
@@ -86,8 +87,8 @@ def register():
     if not phone:
         raise ApiError('Enter a Pakistani mobile number, e.g. 0300 1234567')
     user_type = data.get('user_type')
-    if user_type not in ('student', 'faculty', 'staff'):
-        raise ApiError('Choose student, faculty or staff')
+    if user_type not in CUSTOMER_TYPES:
+        raise ApiError('Choose student, GC, army, faculty or staff')
     password = data.get('password') or ''
     if len(password) < 6:
         raise ApiError('Password must be at least 6 characters')

@@ -143,7 +143,7 @@ WHERE o.status = 'Ready'
 GROUP BY o.order_id, u.user_id, p.payment_id
 ORDER BY o.requested_pickup_time;
 
--- Daily sales: revenue = money actually confirmed (refunds excluded)
+-- Daily sales: revenue = money confirmed + orders added to monthly bills (refunds excluded)
 CREATE OR REPLACE VIEW Daily_Sales AS
 SELECT
     DATE(o.order_date)                                              AS sales_date,
@@ -151,7 +151,7 @@ SELECT
     SUM(o.status = 'Completed')                                     AS completed_orders,
     SUM(o.status IN ('Cancelled', 'Rejected'))                      AS cancelled_or_rejected,
     SUM(o.status = 'No Show')                                       AS no_shows,
-    COALESCE(SUM(CASE WHEN p.payment_status = 'Confirmed' THEN p.amount END), 0) AS revenue
+    COALESCE(SUM(CASE WHEN p.payment_status IN ('Confirmed', 'Billed') THEN p.amount END), 0) AS revenue
 FROM Orders o
 LEFT JOIN Payments p ON p.order_id = o.order_id
 GROUP BY DATE(o.order_date);
@@ -197,16 +197,65 @@ JOIN Categories c ON c.category_id = m.category_id
 WHERE m.stock_quantity <= m.low_stock_threshold
 ORDER BY m.stock_quantity;
 
--- Customers who owe money for orders they never collected
-CREATE OR REPLACE VIEW Outstanding_Dues AS
+-- Monthly bill of every customer (Amount Payable / Amount Receivable).
+--   charges  = Billed payments (monthly-bill orders handed over, and unpaid No Shows)
+--   payments = confirmed Account_Payments, waivers included, oldest charges first
+-- A month's charges are due on due_day of the next month; overdue is what is
+-- still unpaid of charges whose due date has passed - it blocks new orders.
+-- spent_this_month also counts monthly-bill orders still in progress, so the
+-- monthly limit can't be passed by placing several orders at once.
+CREATE OR REPLACE VIEW Account_Balances AS
 SELECT
     u.user_id,
     u.university_id,
     u.full_name,
+    u.email,
     u.phone,
-    COUNT(o.order_id)   AS unpaid_no_shows,
-    SUM(p.amount)       AS amount_due
+    u.user_type,
+    u.is_active,
+    u.account_enabled,
+    COALESCE(u.monthly_limit, s.default_monthly_limit)                    AS monthly_limit,
+    u.monthly_limit IS NULL                                               AS uses_default_limit,
+    COALESCE(c.charged, 0)                                                AS total_charged,
+    COALESCE(c.charged_this_month, 0)                                     AS charged_this_month,
+    COALESCE(c.spent_this_month, 0)                                       AS spent_this_month,
+    COALESCE(k.paid, 0)                                                   AS total_paid,
+    COALESCE(k.waived, 0)                                                 AS total_waived,
+    COALESCE(k.pending, 0)                                                AS pending_payments,
+    COALESCE(k.pending_count, 0)                                          AS pending_payment_count,
+    COALESCE(c.charged, 0) - COALESCE(k.paid, 0)                          AS balance,
+    GREATEST(COALESCE(c.charged, 0) - COALESCE(k.paid, 0) - COALESCE(c.charged_this_month, 0), 0) AS previous_unpaid,
+    GREATEST(COALESCE(c.charged_due, 0) - COALESCE(k.paid, 0), 0)          AS overdue,
+    LAST_DAY(CURDATE() - INTERVAL 1 MONTH) + INTERVAL s.due_day DAY       AS previous_due_date,
+    LAST_DAY(CURDATE()) + INTERVAL s.due_day DAY                          AS current_due_date,
+    c.last_charge_at,
+    k.last_payment_at
 FROM Users u
-JOIN Orders o   ON o.user_id = u.user_id AND o.status = 'No Show'
-JOIN Payments p ON p.order_id = o.order_id AND p.payment_status = 'Pending'
-GROUP BY u.user_id;
+CROSS JOIN Billing_Settings s
+LEFT JOIN (
+    SELECT o.user_id,
+           SUM(CASE WHEN p.payment_status = 'Billed' THEN p.amount ELSE 0 END)              AS charged,
+           SUM(CASE WHEN p.payment_status = 'Billed'
+                     AND o.order_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN p.amount ELSE 0 END) AS charged_this_month,
+           SUM(CASE WHEN o.order_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN p.amount ELSE 0 END) AS spent_this_month,
+           SUM(CASE WHEN p.payment_status = 'Billed'
+                     AND LAST_DAY(o.order_date) + INTERVAL bs.due_day DAY < CURDATE() THEN p.amount ELSE 0 END) AS charged_due,
+           MAX(CASE WHEN p.payment_status = 'Billed' THEN o.order_date END)                 AS last_charge_at
+      FROM Orders o
+      JOIN Payments p ON p.order_id = o.order_id
+     CROSS JOIN Billing_Settings bs
+     WHERE p.payment_status = 'Billed'
+        OR (p.payment_method = 'Account' AND p.payment_status = 'Pending')
+     GROUP BY o.user_id
+) c ON c.user_id = u.user_id
+LEFT JOIN (
+    SELECT user_id,
+           SUM(CASE WHEN status = 'Confirmed' THEN amount ELSE 0 END)                       AS paid,
+           SUM(CASE WHEN status = 'Confirmed' AND method = 'Waiver' THEN amount ELSE 0 END) AS waived,
+           SUM(CASE WHEN status = 'Pending' THEN amount ELSE 0 END)                         AS pending,
+           SUM(status = 'Pending')                                                          AS pending_count,
+           MAX(CASE WHEN status = 'Confirmed' THEN verified_at END)                         AS last_payment_at
+      FROM Account_Payments
+     GROUP BY user_id
+) k ON k.user_id = u.user_id
+WHERE u.role = 'customer';

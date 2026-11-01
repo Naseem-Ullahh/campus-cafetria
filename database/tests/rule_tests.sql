@@ -68,7 +68,7 @@ CALL t_assert((SELECT COUNT(*) FROM Cart WHERE user_id = @ali) = 1, 'cart kept a
 UPDATE Cart SET quantity = 1 WHERE user_id = @ali;
 CALL t_expect_error('CALL PlaceOrder(@ali, NOW() + INTERVAL 5 MINUTE, ''Cash'', NULL, NULL, @x)', 'at least 15 minutes', 'pickup too soon rejected');
 CALL t_expect_error('CALL PlaceOrder(@ali, NOW() + INTERVAL 30 MINUTE, ''JazzCash'', '' '', NULL, @x)', 'transaction ID', 'wallet payment without reference rejected');
-CALL t_expect_error('CALL PlaceOrder(@ali, NOW() + INTERVAL 30 MINUTE, ''Card'', NULL, NULL, @x)', 'Cash, Easypaisa or JazzCash', 'unknown payment method rejected');
+CALL t_expect_error('CALL PlaceOrder(@ali, NOW() + INTERVAL 30 MINUTE, ''Card'', NULL, NULL, @x)', 'Payment method must be', 'unknown payment method rejected');
 DELETE FROM Cart WHERE user_id = @ali;
 INSERT INTO Cart (user_id, item_id, quantity) VALUES (@ali, @fries, 1);
 CALL t_expect_error('CALL PlaceOrder(@ali, NOW() + INTERVAL 30 MINUTE, ''Cash'', NULL, NULL, @x)', 'is out of stock', 'out-of-stock item rejected');
@@ -145,7 +145,7 @@ CALL PlaceOrder(@fatima, NOW() + INTERVAL 1 HOUR, 'Cash', NULL, NULL, @o3);
 UPDATE Orders SET cancellation_deadline = NOW() - INTERVAL 1 MINUTE WHERE order_id = @o3;
 CALL t_expect_error(CONCAT('CALL CancelOrder(', @o3, ', ', @fatima, ')'), 'deadline', 'cancel after deadline blocked');
 
--- ---------- Overdue processing, No Show and dues ----------
+-- ---------- Overdue processing, No Show and the monthly bill ----------
 UPDATE Orders SET acceptance_deadline = NOW() - INTERVAL 1 MINUTE WHERE order_id = @o3;
 CALL t_expect_error(CONCAT('CALL AcceptOrder(', @o3, ', ', @cash, ', NULL)'), 'acceptance window', 'cannot accept after the 10-minute window');
 INSERT INTO Cart (user_id, item_id, quantity) VALUES (@sana, @burger, 1), (@sana, @juice, 2);
@@ -161,12 +161,17 @@ CALL t_assert((SELECT payment_status FROM Payments WHERE order_id = @o3) = 'Void
 CALL t_assert((SELECT changed_by IS NULL AND note = 'Not accepted within 10 minutes' FROM Order_Status_History WHERE order_id = @o3 AND new_status = 'Rejected'), 'automatic rejection recorded as system, with reason');
 CALL t_assert(@ns = 1 AND (SELECT status FROM Orders WHERE order_id = @o4) = 'No Show', 'uncollected order -> No Show');
 CALL t_assert((SELECT stock_quantity FROM Menu_Items WHERE item_id = @juice) = @stock_juice, 'No Show does NOT restore stock');
-CALL t_assert((SELECT amount_due FROM Outstanding_Dues WHERE user_id = @sana) = 200, 'dues view shows Rs. 200 owed');
+CALL t_assert((SELECT payment_status FROM Payments WHERE order_id = @o4) = 'Billed', 'unpaid No Show goes on the monthly bill (trigger)');
+CALL t_assert((SELECT balance = 200 AND overdue = 0 FROM Account_Balances WHERE user_id = @sana), 'bill shows Rs. 200 owed, not overdue yet');
 INSERT INTO Cart (user_id, item_id, quantity) VALUES (@sana, @coffee, 1);
-CALL t_expect_error('CALL PlaceOrder(@sana, NOW() + INTERVAL 30 MINUTE, ''Cash'', NULL, NULL, @x)', 'unpaid', 'customer with unpaid No Show is blocked');
-CALL ConfirmPayment(@o4, @cash);
+UPDATE Orders SET order_date = order_date - INTERVAL 2 MONTH WHERE order_id = @o4;
+CALL t_assert((SELECT overdue FROM Account_Balances WHERE user_id = @sana) = 200, 'charge from 2 months ago is overdue');
+CALL t_expect_error('CALL PlaceOrder(@sana, NOW() + INTERVAL 30 MINUTE, ''Cash'', NULL, NULL, @x)', 'overdue', 'customer with an overdue bill is blocked');
+CALL RecordAccountPayment(@sana, @cash, 150, 'Cash', NULL, NULL, @p0);
+CALL t_expect_error('CALL PlaceOrder(@sana, NOW() + INTERVAL 30 MINUTE, ''Cash'', NULL, NULL, @x)', 'Rs. 50 of your monthly bill is overdue', 'part payment leaves the rest overdue');
+CALL RecordAccountPayment(@sana, @cash, 50, 'Cash', NULL, NULL, @p0);
 CALL PlaceOrder(@sana, NOW() + INTERVAL 30 MINUTE, 'Cash', NULL, NULL, @o5);
-CALL t_assert(@o5 IS NOT NULL, 'can order again after paying dues');
+CALL t_assert(@o5 IS NOT NULL AND (SELECT balance FROM Account_Balances WHERE user_id = @sana) = 0, 'can order again once the bill is paid');
 
 -- ---------- Reviews ----------
 CALL t_expect_error('INSERT INTO Reviews (user_id, item_id, rating) VALUES (@fatima, @coffee, 5)', 'completed orders', 'non-buyer cannot review');
@@ -178,13 +183,85 @@ CALL t_assert((SELECT avg_rating FROM Menu_Catalog WHERE item_id = @burger) = 5.
 -- ---------- Views ----------
 CALL t_assert((SELECT COUNT(*) FROM Menu_Catalog) = 12, 'Menu_Catalog lists 12 items');
 CALL t_assert((SELECT can_order FROM Menu_Catalog WHERE item_id = @fries) = 0, 'out-of-stock item not orderable');
-CALL t_assert((SELECT revenue FROM Daily_Sales WHERE sales_date = CURDATE()) = 290 + 200, 'Daily_Sales revenue = confirmed payments only (refund excluded, paid No Show included)');
+CALL t_assert((SELECT revenue FROM Daily_Sales WHERE sales_date = CURDATE()) = 290, 'Daily_Sales revenue = paid + billed orders (refund excluded)');
+CALL t_assert((SELECT SUM(revenue) FROM Daily_Sales) = 290 + 200, 'billed No Show counted as revenue on its own day');
 CALL t_assert((SELECT units_sold FROM Popular_Items WHERE item_id = @burger) = 2, 'Popular_Items counts completed orders only');
 CALL t_assert((SELECT SUM(sales_amount) FROM Category_Sales) = 290, 'Category_Sales counts completed orders only');
 CALL t_assert((SELECT COUNT(*) FROM Incoming_Orders) = 1 AND (SELECT order_id FROM Incoming_Orders) = @o5, 'Incoming_Orders shows only orders waiting for review');
 CALL t_assert((SELECT COUNT(*) FROM Kitchen_Queue) = 1 AND (SELECT order_id FROM Kitchen_Queue) = @o8, 'Kitchen_Queue shows only accepted / cooking orders');
 CALL t_assert((SELECT COUNT(*) FROM Pickup_Counter) = 0, 'Pickup_Counter empty when nothing is ready');
 CALL t_assert((SELECT COUNT(*) FROM Order_Receipt_Lines WHERE order_id = @o1) = 2, 'receipt lines view');
+
+-- ---------- Monthly bill: ordering on the bill ----------
+INSERT INTO Cart (user_id, item_id, quantity) VALUES (@ali, @coffee, 1);
+CALL PlaceOrder(@ali, NOW() + INTERVAL 30 MINUTE, 'Account', 'ignored', NULL, @o9);
+CALL t_assert((SELECT payment_method = 'Account' AND payment_status = 'Pending' AND transaction_reference IS NULL FROM Payments WHERE order_id = @o9), 'monthly-bill order: Pending, no transaction ID');
+CALL t_assert((SELECT spent_this_month = 50 AND balance = 0 FROM Account_Balances WHERE user_id = @ali), 'order in progress counts toward the limit, not the balance');
+CALL t_expect_error(CONCAT('CALL ConfirmPayment(', @o9, ', ', @cash, ')'), 'on the monthly bill', 'monthly-bill order cannot be "paid" per order');
+CALL AcceptOrder(@o9, @cash, NULL);
+CALL StartPreparing(@o9, @chef);
+CALL MarkReady(@o9, @chef);
+CALL CompletePickup(@o9, @cash);
+CALL t_assert((SELECT o.status = 'Completed' AND p.payment_status = 'Billed' FROM Orders o JOIN Payments p ON p.order_id = o.order_id WHERE o.order_id = @o9), 'handing over a monthly-bill order bills it');
+CALL t_assert((SELECT balance = 50 AND charged_this_month = 50 AND overdue = 0 FROM Account_Balances WHERE user_id = @ali), 'balance shows the billed order');
+CALL t_assert((SELECT previous_due_date = LAST_DAY(CURDATE() - INTERVAL 1 MONTH) + INTERVAL 10 DAY
+                  AND current_due_date = LAST_DAY(CURDATE()) + INTERVAL 10 DAY FROM Account_Balances WHERE user_id = @ali), 'bills are due on the 10th of the next month');
+
+UPDATE Users SET monthly_limit = 100 WHERE user_id = @ali;
+INSERT INTO Cart (user_id, item_id, quantity) VALUES (@ali, @burger, 1);
+CALL t_expect_error('CALL PlaceOrder(@ali, NOW() + INTERVAL 30 MINUTE, ''Account'', NULL, NULL, @x)', 'over its Rs. 100 limit (Rs. 50 left', 'order over the monthly limit refused');
+CALL PlaceOrder(@ali, NOW() + INTERVAL 30 MINUTE, 'Cash', NULL, NULL, @o10);
+CALL t_assert(@o10 IS NOT NULL, 'the limit only applies to the monthly bill, not cash');
+CALL CancelOrder(@o10, @ali);
+UPDATE Users SET monthly_limit = NULL, account_enabled = FALSE WHERE user_id = @ali;
+INSERT INTO Cart (user_id, item_id, quantity) VALUES (@ali, @coffee, 1);
+CALL t_expect_error('CALL PlaceOrder(@ali, NOW() + INTERVAL 30 MINUTE, ''Account'', NULL, NULL, @x)', 'not available on your account', 'customer without the monthly bill refused');
+UPDATE Users SET account_enabled = TRUE WHERE user_id = @ali;
+UPDATE Billing_Settings SET accounts_open = FALSE;
+CALL t_expect_error('CALL PlaceOrder(@ali, NOW() + INTERVAL 30 MINUTE, ''Account'', NULL, NULL, @x)', 'switched off', 'monthly bill switched off by the manager');
+UPDATE Billing_Settings SET accounts_open = TRUE;
+CALL t_expect_error('UPDATE Billing_Settings SET due_day = 31', 'chk_settings_due_day', 'due day must exist in every month');
+CALL t_expect_error('INSERT INTO Billing_Settings (setting_id) VALUES (2)', 'chk_settings_single_row', 'only one settings row');
+DELETE FROM Cart WHERE user_id = @ali;
+
+-- ---------- Monthly bill: paying it ----------
+CALL t_expect_error('CALL RecordAccountPayment(@ali, @cash, 60, ''Cash'', NULL, NULL, @x)', 'more than the customer owes (Rs. 50)', 'cannot record more than is owed');
+CALL t_expect_error('CALL RecordAccountPayment(@ali, @chef, 10, ''Cash'', NULL, NULL, @x)', 'Only the manager or cashier', 'kitchen cannot record payments');
+CALL t_expect_error('CALL RecordAccountPayment(@ali, @cash, 10, ''Waiver'', NULL, ''Sorry'', @x)', 'Only the manager can waive', 'cashier cannot waive');
+CALL t_expect_error('CALL RecordAccountPayment(@ali, @admin, 10, ''Waiver'', NULL, '' '', @x)', 'reason is required', 'waiver needs a reason');
+CALL SubmitAccountPayment(@ali, 30, 'JazzCash', 'JC-1001', @p1);
+CALL t_assert((SELECT balance = 50 AND pending_payments = 30 AND pending_payment_count = 1 FROM Account_Balances WHERE user_id = @ali), 'online payment waits for the cashier before counting');
+CALL t_expect_error('CALL SubmitAccountPayment(@ali, 30, ''Easypaisa'', ''EP-1002'', @x)', 'most you can pay is Rs. 20', 'online payments cannot add up to more than is owed');
+CALL t_expect_error('CALL SubmitAccountPayment(@ali, 10, ''Easypaisa'', ''JC-778899'', @x)', 'already been used', 'transaction ID used for an order cannot pay a bill');
+CALL t_expect_error('CALL SubmitAccountPayment(@ali, 10, ''Cash'', ''X1'', @x)', 'Easypaisa or JazzCash', 'online bill payment must be a wallet');
+CALL t_expect_error(CONCAT('CALL ConfirmAccountPayment(', @p1, ', ', @chef, ')'), 'Only the manager or cashier', 'kitchen cannot confirm bill payments');
+CALL ConfirmAccountPayment(@p1, @cash);
+CALL t_assert((SELECT balance = 20 AND pending_payments = 0 FROM Account_Balances WHERE user_id = @ali), 'confirmed online payment comes off the bill');
+CALL t_expect_error(CONCAT('CALL ConfirmAccountPayment(', @p1, ', ', @cash, ')'), 'already been checked', 'cannot confirm twice');
+CALL SubmitAccountPayment(@ali, 20, 'Easypaisa', 'EP-2002', @p2);
+CALL t_expect_error(CONCAT('CALL RejectAccountPayment(', @p2, ', ', @cash, ', '' '')'), 'reason is required', 'rejecting needs a reason');
+CALL RejectAccountPayment(@p2, @cash, 'No payment with this ID');
+CALL t_assert((SELECT status = 'Rejected' AND note = 'No payment with this ID' FROM Account_Payments WHERE account_payment_id = @p2), 'rejected payment keeps the reason');
+CALL t_assert((SELECT balance FROM Account_Balances WHERE user_id = @ali) = 20, 'rejected payment does not reduce the bill');
+CALL RecordAccountPayment(@ali, @admin, 20, 'Waiver', NULL, 'Coffee was cold', @p3);
+CALL t_assert((SELECT balance = 0 AND total_waived = 20 AND total_paid = 50 FROM Account_Balances WHERE user_id = @ali), 'manager waiver clears the rest');
+CALL t_expect_error('CALL RecordAccountPayment(@ali, @cash, 1, ''Cash'', NULL, NULL, @x)', 'does not owe anything', 'nothing to pay once cleared');
+UPDATE Orders SET order_date = order_date - INTERVAL 2 MONTH WHERE order_id = @o9;
+CALL t_assert((SELECT overdue FROM Account_Balances WHERE user_id = @ali) = 0, 'an old charge that was paid is not overdue');
+
+-- ---------- No Show correction: the customer did collect ----------
+CALL MarkReady(@o8, @chef);
+UPDATE Orders SET requested_pickup_time = NOW() - INTERVAL 31 MINUTE WHERE order_id = @o8;
+CALL ProcessOverdueOrders(@rej, @ns);
+CALL t_assert((SELECT balance FROM Account_Balances WHERE user_id = @fatima) = 50, 'No Show billed to the customer');
+CALL t_expect_error(CONCAT('CALL MarkCollected(', @o8, ', ', @chef, ')'), 'Only the manager or cashier', 'kitchen cannot correct a No Show');
+CALL t_expect_error(CONCAT('CALL MarkCollected(', @o1, ', ', @cash, ')'), 'Only No Show orders', 'only No Show orders can be corrected');
+CALL MarkCollected(@o8, @cash);
+CALL t_assert((SELECT o.status = 'Completed' AND o.close_reason IS NULL AND o.closed_at IS NULL AND p.payment_status = 'Confirmed'
+                 FROM Orders o JOIN Payments p ON p.order_id = o.order_id WHERE o.order_id = @o8), 'corrected order is Completed and paid');
+CALL t_assert((SELECT balance FROM Account_Balances WHERE user_id = @fatima) = 0, 'correction takes it off the bill');
+CALL t_assert((SELECT changed_by = @cash AND note LIKE 'Collected%' FROM Order_Status_History WHERE order_id = @o8 AND old_status = 'No Show'), 'correction recorded with who did it');
+CALL t_expect_error(CONCAT('UPDATE Orders SET status = ''No Show'' WHERE order_id = ', @o8), 'cannot change from Completed to No Show', 'completed order cannot go back to No Show');
 
 SELECT IF(ok, 'PASS', 'FAIL') AS result, label, detail FROM test_results ORDER BY id;
 SELECT SUM(ok) AS passed, SUM(NOT ok) AS failed FROM test_results;

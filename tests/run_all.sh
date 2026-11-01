@@ -17,7 +17,7 @@ server/.venv/bin/pytest server/tests/test_unit.py -q -p no:cacheprovider
 step "2/7 Unit: browser data layer (store.js)"
 (cd tests && npm run --silent unit)
 
-step "3/7 Unit: database rules (74 SQL checks)"
+step "3/7 Unit: database rules (114 SQL checks)"
 $PY server/init_db.py --reset >/dev/null
 $PY - <<'EOF'
 import pymysql, sys

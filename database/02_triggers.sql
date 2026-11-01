@@ -103,6 +103,7 @@ BEGIN
             OR (OLD.status = 'Accepted'  AND NEW.status IN ('Preparing', 'Cancelled'))
             OR (OLD.status = 'Preparing' AND NEW.status = 'Ready')
             OR (OLD.status = 'Ready'     AND NEW.status IN ('Completed', 'No Show'))
+            OR (OLD.status = 'No Show'   AND NEW.status = 'Completed')   -- staff forgot to record the pickup
         ) THEN
             SET v_msg = CONCAT('Order status cannot change from ', OLD.status, ' to ', NEW.status);
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
@@ -116,10 +117,10 @@ BEGIN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A reason is required to reject an order';
         END IF;
 
-        -- Food is handed over only after it is paid for
+        -- Food is handed over only after it is paid for (or added to the monthly bill)
         IF NEW.status = 'Completed' THEN
             SELECT payment_status INTO v_payment_status FROM Payments WHERE order_id = OLD.order_id;
-            IF v_payment_status IS NULL OR v_payment_status <> 'Confirmed' THEN
+            IF v_payment_status IS NULL OR v_payment_status NOT IN ('Confirmed', 'Billed') THEN
                 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment must be confirmed before the order is completed';
             END IF;
         END IF;
@@ -128,7 +129,9 @@ BEGIN
             WHEN 'Accepted'  THEN SET NEW.accepted_at = NOW();
             WHEN 'Preparing' THEN SET NEW.preparing_at = NOW();
             WHEN 'Ready'     THEN SET NEW.ready_at = NOW();
-            WHEN 'Completed' THEN SET NEW.picked_up_at = NOW();
+            WHEN 'Completed' THEN
+                SET NEW.picked_up_at = NOW();
+                SET NEW.closed_at = NULL, NEW.close_reason = NULL;    -- a corrected No Show is no longer closed
             ELSE                                -- Cancelled, Rejected, No Show
                 SET NEW.closed_at = NOW();
                 SET NEW.close_reason = NULLIF(TRIM(@status_note), '');
@@ -147,7 +150,13 @@ BEGIN
 
         -- Cancelled / Rejected: food was not handed out -> put items back in stock.
         -- Runs only on the transition INTO these final states, so never twice.
-        -- No Show does NOT restore stock: the food was already prepared.
+        -- No Show does NOT restore stock: the food was already prepared, so an
+        -- unpaid order is added to the customer's monthly bill instead.
+        IF NEW.status = 'No Show' THEN
+            UPDATE Payments SET payment_status = 'Billed'
+             WHERE order_id = NEW.order_id AND payment_status = 'Pending';
+        END IF;
+
         IF NEW.status IN ('Cancelled', 'Rejected') THEN
             UPDATE Menu_Items m
               JOIN Order_Details od ON od.item_id = m.item_id

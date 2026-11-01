@@ -1,7 +1,7 @@
 // Component tests: student pages, each in isolation with a faked API.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { setup, me, MENU, order, at } = require('./harness');
+const { setup, me, MENU, order, at, account } = require('./harness');
 
 let h;
 test.before(async () => { h = await setup(); });
@@ -220,7 +220,7 @@ test('receipt: lines, payment and tracking link', async () => {
     await page.waitForFunction(() => document.getElementById('grandTotal').innerText === 'Rs. 290');
     assert.equal(await text(page, '#orderId'), '#0007');
     assert.equal(await page.$$eval('#receiptItems tr', r => r.length), 2);
-    assert.equal(await text(page, '#paymentInfo'), 'Easypaisa (ID EP123456) - Pending');
+    assert.equal(await text(page, '#paymentInfo'), 'Easypaisa (ID EP123456) - Not paid yet');
     assert.match(await page.$eval('#trackOrderLink', a => a.href), /order-status\.html\?order=7$/);
 });
 
@@ -273,10 +273,10 @@ test('tracking: refunded wallet payment is described honestly', async () => {
 });
 
 test('tracking: no-show with money owed says so', async () => {
-    const o = order({ status: 'No Show', history: [{ new_status: 'Received' }, { new_status: 'Accepted' }, { new_status: 'Preparing' }, { new_status: 'Ready' }, { new_status: 'No Show' }].map(h2 => ({ ...h2, changed_at: at(-1) })) });
+    const o = order({ status: 'No Show', payment_status: 'Billed', history: [{ new_status: 'Received' }, { new_status: 'Accepted' }, { new_status: 'Preparing' }, { new_status: 'Ready' }, { new_status: 'No Show' }].map(h2 => ({ ...h2, changed_at: at(-1) })) });
     const { page } = await h.open('pages/student/order-status.html?order=7', { 'GET /auth/me': me('customer'), 'GET /orders/7': [200, { order: o }] });
     await page.waitForSelector('#closedBanner:not([hidden])');
-    assert.match(await text(page, '#closedBanner'), /Rs\. 290 is still owed/);
+    assert.match(await text(page, '#closedBanner'), /Rs\. 290 has been added to your monthly bill/);
     assert.equal(await page.$$eval('.timeline-item.completed', e => e.length), 4, 'shows the steps it did reach');
 });
 
@@ -375,4 +375,112 @@ test('landing: splash once per visit, welcome-back only for customers', async ()
     const staff = await h.open('index.html', { 'GET /auth/me': me('cashier') });
     await new Promise(r => setTimeout(r, 500));
     assert.equal(await staff.page.$('.welcome-back'), null);
+});
+
+// ---------- monthly bill ----------
+test('checkout: monthly bill shows what is left of the limit and sends Account with no ID', async () => {
+    const { page, calls } = await h.open('pages/student/checkout.html', {
+        'GET /auth/me': me('customer'), 'GET /account': account({ monthly_limit: 3000, spent_this_month: 1200 }),
+        'POST /orders': [201, { order: { order_id: 7 } }], 'GET /orders/7': [200, { order: order() }]
+    }, { before: cartWith(CART) });
+    await page.waitForSelector('#accountOption:not([hidden])');
+    assert.match(await text(page, '#accountOptionText'), /^Rs\. 1,800 left of your Rs\. 3,000 limit this month · due by \d+ \w+ \d{4}$/);
+    await page.click('#accountOption');
+    assert.equal(await page.$eval('#transactionGroup', e => e.hidden), true, 'no transaction ID for the monthly bill');
+    await Promise.all([page.waitForNavigation(), page.click('#placeOrderBtn')]);
+    const sent = calls.find(c => c.key === 'POST /orders').body;
+    assert.equal(sent.payment_method, 'Account');
+    assert.equal(sent.transaction_reference, null);
+});
+
+test('checkout: an overdue bill is shown up front and ordering is disabled', async () => {
+    const { page } = await h.open('pages/student/checkout.html', {
+        'GET /auth/me': me('customer'), 'GET /account': account({ balance: 900, overdue: 650, previous_unpaid: 650 })
+    }, { before: cartWith(CART) });
+    await page.waitForSelector('#billAlert.show');
+    assert.match(await text(page, '#billAlert'), /Rs\. 650 of your monthly bill is overdue/);
+    assert.equal(await page.$eval('#billAlert a', a => a.getAttribute('href')), 'profile.html#bill');
+    assert.equal(await page.$eval('#placeOrderBtn', b => b.disabled), true);
+});
+
+test('checkout: monthly bill can be off for the account or for everyone', async () => {
+    for (const [overrides, settings, expected] of [
+        [{ account_enabled: 0 }, {}, /Not available on your account/],
+        [{}, { accounts_open: 0 }, /Not available right now/]
+    ]) {
+        const { page } = await h.open('pages/student/checkout.html', {
+            'GET /auth/me': me('customer'), 'GET /account': account(overrides, [], settings)
+        }, { before: cartWith(CART) });
+        await page.waitForSelector('#accountOption:not([hidden])');
+        assert.match(await text(page, '#accountOptionText'), expected);
+        await page.click('#accountOption');
+        assert.equal(await page.$eval('input[value="Account"]', r => r.checked), false, 'disabled option cannot be chosen');
+        assert.equal(await page.$eval('input[value="Cash"]', r => r.checked), true);
+    }
+});
+
+const BILL_ENTRIES = [
+    { kind: 'payment', order_id: null, account_payment_id: 3, at: at(-60), amount: 500, method: 'JazzCash', status: 'Pending', order_status: null, transaction_reference: 'JC5555555', note: null, staff_name: null, items: null },
+    { kind: 'charge', order_id: 12, account_payment_id: null, at: at(-120), amount: 240, method: 'Account', status: 'Billed', order_status: 'Completed', transaction_reference: null, note: null, staff_name: null, items: '2 x Classic Burger' },
+    { kind: 'charge', order_id: 11, account_payment_id: null, at: at(-50 * 24 * 60), amount: 1000, method: 'Cash', status: 'Billed', order_status: 'No Show', transaction_reference: null, note: null, staff_name: null, items: '<b>8 x Coffee</b>' },
+    { kind: 'payment', order_id: null, account_payment_id: 1, at: at(-49 * 24 * 60), amount: 100, method: 'Easypaisa', status: 'Rejected', order_status: null, transaction_reference: 'EP1', note: 'No payment with this ID', staff_name: null, items: null }
+];
+
+test('profile: Amount Payable shows the bill, overdue warning and statement by month', async () => {
+    const { page } = await h.open('pages/student/profile.html#bill', {
+        'GET /auth/me': me('customer'), 'GET /orders/mine': [200, { orders: [] }],
+        'GET /account': account({ balance: 1240, charged_this_month: 240, spent_this_month: 240, previous_unpaid: 1000, overdue: 1000, pending_payments: 500, pending_payment_count: 1 }, BILL_ENTRIES)
+    });
+    await page.waitForSelector('.bill-total');
+    assert.equal(await page.$eval('#billTab', e => e.classList.contains('active')), true, '#bill opens the tab');
+    assert.equal(await text(page, '.bill-total strong'), 'Rs. 1,240');
+    assert.match(await text(page, '.bill-status'), /Rs\. 1,000 is overdue - you can't place new orders/);
+    assert.match(await text(page, '#billBanner'), /Rs\. 1,000 of your monthly bill is overdue/);
+    assert.equal(await page.$eval('#billBanner', e => e.classList.contains('is-overdue')), true);
+    assert.equal(await page.$eval('#billAmount', e => e.value), '740', 'suggests what is owed minus payments being checked');
+    assert.equal(await page.$$eval('.statement-month', m => m.length), 2);
+    assert.match(await text(page, '.statement-month:first-child h4'), /Charged Rs\. 240/);
+    const all = await text(page, '#billStatement');
+    assert.match(all, /Being checked/);
+    assert.match(all, /Not collected/);
+    assert.match(all, /Not accepted/);
+    assert.ok((await page.$eval('#billStatement', e => e.innerHTML)).includes('&lt;b&gt;8 x Coffee'), 'item text escaped');
+});
+
+test('profile: paying online sends the amount, wallet and ID, then shows the new bill', async () => {
+    let paid = false;
+    const { page, calls } = await h.open('pages/student/profile.html', {
+        'GET /auth/me': me('customer'), 'GET /orders/mine': [200, { orders: [] }],
+        'GET /account': account({ balance: 300, charged_this_month: 300 }),
+        'POST /account/payments': call => { paid = true; return account({ balance: 300, charged_this_month: 300, pending_payments: call.body.amount, pending_payment_count: 1 }); }
+    });
+    await page.waitForSelector('.bill-total');
+    await page.evaluate(() => switchTab('bill'));
+    await page.$eval('#billAmount', e => { e.value = '200'; });
+    await page.select('#billMethod', 'JazzCash');
+    await page.type('#billReference', 'JC12345678');
+    await page.click('#payBillBtn');
+    await page.waitForFunction(() => document.body.textContent.includes('Being checked'));
+    assert.ok(paid);
+    assert.deepEqual(calls.find(c => c.key === 'POST /account/payments').body, { amount: 200, method: 'JazzCash', transaction_reference: 'JC12345678' });
+    assert.equal(await page.$eval('#billAmount', e => e.value), '100');
+});
+
+test('profile: nothing owed hides the payment form and the banner', async () => {
+    const { page } = await h.open('pages/student/profile.html', {
+        'GET /auth/me': me('customer'), 'GET /orders/mine': [200, { orders: [] }], 'GET /account': account()
+    });
+    await page.waitForSelector('.bill-total');
+    assert.equal(await page.$eval('#payBillCard', e => e.hidden), true);
+    assert.equal(await page.$eval('#billBanner', e => e.hidden), true);
+    assert.match(await text(page, '.bill-status'), /all paid up/);
+    assert.match(await text(page, '#billStatement'), /Add to my monthly bill/);
+});
+
+test('tracking: a monthly-bill order says it goes on the bill', async () => {
+    const o = order({ payment_method: 'Account' });
+    const { page } = await h.open('pages/student/order-status.html?order=7', { 'GET /auth/me': me('customer'), 'GET /orders/7': [200, { order: o }] });
+    await page.waitForSelector('.timeline-item');
+    assert.equal(await text(page, '#paymentMethod'), 'Monthly bill');
+    assert.equal(await text(page, '#paymentStatus'), 'Added to your monthly bill at pickup');
 });

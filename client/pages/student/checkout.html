@@ -70,6 +70,12 @@
             </div>
         </div>
 
+        <!-- Monthly bill overdue: the server won't take new orders until it's paid -->
+        <div class="alert alert-warning" id="billAlert" role="alert">
+            <i class="fas fa-file-invoice" style="font-size: 24px;"></i>
+            <div id="billAlertText"></div>
+        </div>
+
         <div class="checkout-container" id="checkoutContent" style="display: none;">
             <!-- Left Section - Forms -->
             <div>
@@ -161,6 +167,17 @@
                                 <p>Send the total to the cafeteria's JazzCash account, then enter the transaction ID</p>
                             </div>
                         </div>
+
+                        <div class="payment-option" id="accountOption" onclick="selectPayment('Account')" hidden>
+                            <input type="radio" name="payment" value="Account" class="payment-radio">
+                            <div class="payment-icon">
+                                <i class="fas fa-file-invoice" style="color: var(--brick);"></i>
+                            </div>
+                            <div class="payment-details">
+                                <h4>Add to my monthly bill</h4>
+                                <p id="accountOptionText">Pay for this month's orders together</p>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-group" id="transactionGroup" style="margin-top: 16px;" hidden>
@@ -197,7 +214,7 @@
 
                 <div style="margin-top: 20px; text-align: center;">
                     <p style="font-size: 13px; color: var(--text-muted);">
-                        <i class="fas fa-info-circle"></i> Wallet payments are verified by the cashier before pickup
+                        <i class="fas fa-info-circle"></i> Wallet payments are verified by the cashier before pickup. Monthly bill orders are paid at the end of the month.
                     </p>
                 </div>
             </div>

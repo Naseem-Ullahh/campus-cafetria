@@ -43,10 +43,10 @@ test('pages no longer keep orders, menus or users in the browser', () => {
     assert.deepEqual(findAll(/localStorage\.(get|set)Item\(['"](orders|menuItems|users|currentUser|adminSession)['"]/), []);
 });
 
-test('only Cash, Easypaisa and JazzCash are offered', async () => {
+test('only Cash, Easypaisa, JazzCash and the monthly bill are offered', async () => {
     const checkout = SOURCES.find(s => s.file.endsWith('pages/student/checkout.html')).text;
     const methods = [...checkout.matchAll(/name="payment" value="([^"]+)"/g)].map(m => m[1]);
-    assert.deepEqual(methods, ['Cash', 'Easypaisa', 'JazzCash']);
+    assert.deepEqual(methods, ['Cash', 'Easypaisa', 'JazzCash', 'Account']);     // Account = the monthly bill
 });
 
 test('every page has a title and a viewport tag, and loads the shared theme', () => {

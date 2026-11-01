@@ -13,15 +13,6 @@ const BOARDS = {
                 empty: 'No orders waiting to be collected.' }
 };
 
-// Links in the top bar, by role
-const NAV = [
-    { href: 'incoming.html', label: 'Incoming', icon: 'fa-inbox', roles: ['admin', 'cashier'] },
-    { href: 'kitchen.html', label: 'Kitchen', icon: 'fa-fire', roles: ['kitchen', 'admin', 'cashier'] },
-    { href: 'counter.html', label: 'Counter', icon: 'fa-cash-register', roles: ['admin', 'cashier'] },
-    { href: 'orders-management.html', label: 'All orders', icon: 'fa-list', roles: ['admin', 'cashier'] },
-    { href: 'dashboard.html', label: 'Dashboard', icon: 'fa-chart-line', roles: ['admin'] }
-];
-
 const REJECT_REASONS = ['An item is not available', "Can't be ready by the pickup time", 'Kitchen is closing'];
 
 const boardName = document.body.dataset.board;
@@ -33,13 +24,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     user = await requireStaffLogin(...board.roles);
     if (!user) return;
 
-    document.getElementById('staffName').textContent = `${user.name} · ${user.role === 'admin' ? 'Manager' : user.role === 'kitchen' ? 'Kitchen' : 'Counter'}`;
-    document.getElementById('boardNav').innerHTML = NAV
-        .filter(link => link.roles.includes(user.role))
-        .map(link => `<a href="${link.href}" class="${link.href === boardName + '.html' ? 'active' : ''}"
-                         ${link.href === boardName + '.html' ? 'aria-current="page"' : ''}>
-                         <i class="fas ${link.icon}"></i> ${link.label}</a>`)
-        .join('');
+    renderStaffBar(user, boardName + '.html');
 
     await refresh();
     setInterval(refresh, 5000);
@@ -47,9 +32,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 async function refresh() {
-    let orders;
+    let orders, data;
     try {
-        orders = (await api(board.endpoint)).orders;
+        data = await api(board.endpoint);
+        orders = data.orders;
         setConnection(true);
     } catch (error) {
         setConnection(false, error.message);
@@ -58,6 +44,17 @@ async function refresh() {
     }
     orders.forEach(order => { order.fetchedAt = Date.now(); });
     render(orders);
+    showBillPayments(data.bill_payments_to_verify);
+}
+
+// Incoming board: online monthly-bill payments waiting to be checked
+function showBillPayments(count) {
+    const notice = document.getElementById('billNotice');
+    if (!notice) return;
+    notice.hidden = !count;
+    notice.innerHTML = count
+        ? `<i class="fas fa-file-invoice-dollar"></i> ${count} online bill payment${count === 1 ? '' : 's'} to check
+           <a href="receivables.html?show=verify">Check now</a>` : '';
 }
 
 function setConnection(ok, message) {
@@ -138,7 +135,7 @@ function cardHtml(order) {
         ? `<p class="card-note"><i class="fas fa-comment-dots"></i> ${escapeHtml(order.special_instructions)}</p>` : '';
 
     if (boardName === 'incoming') {
-        const wallet = order.payment_method !== 'Cash';
+        const wallet = isWalletPayment(order.payment_method);
         return `${head}
             <div class="card-meta">
                 <span class="countdown" data-deadline="${order.seconds_to_decide}"></span>
@@ -146,7 +143,7 @@ function cardHtml(order) {
             </div>
             ${itemsHtml(order.items)}${note}
             <div class="card-pay">
-                <span>${formatPrice(order.total_amount)} · ${order.payment_method}</span>
+                <span>${formatPrice(order.total_amount)} · ${PAYMENT_LABELS[order.payment_method] || order.payment_method}</span>
                 ${wallet ? `<span class="muted">ID ${escapeHtml(order.transaction_reference)} - verify at pickup</span>` : ''}
             </div>
             <div class="card-actions">
@@ -184,9 +181,12 @@ function cardHtml(order) {
 
     // counter
     const pending = order.payment_status === 'Pending';
-    const wallet = order.payment_method !== 'Cash';
+    const wallet = isWalletPayment(order.payment_method);
+    const onBill = order.payment_method === 'Account';
     let payment;
-    if (!pending) {
+    if (onBill) {
+        payment = `<span><i class="fas fa-file-invoice"></i> Monthly bill - nothing to collect, <strong>${formatPrice(order.total_amount)}</strong> is added to their bill</span>`;
+    } else if (!pending) {
         payment = `<span class="paid"><i class="fas fa-check-circle"></i> Paid · ${order.payment_method}</span>`;
     } else if (wallet) {
         payment = `<span>Check ${order.payment_method} for <strong>${formatPrice(order.total_amount)}</strong>, ID <strong>${escapeHtml(order.transaction_reference)}</strong></span>`;
@@ -205,7 +205,7 @@ function cardHtml(order) {
                 ? `<button class="btn-act primary" onclick="act(${order.order_id}, 'confirm-payment', 'Payment confirmed')"><i class="fas fa-check"></i> Payment received</button>
                    <button class="btn-act" disabled title="Confirm the payment first">Hand over</button>`
                 : `<button class="btn-act primary big" onclick="act(${order.order_id}, 'complete', 'Handed over')"><i class="fas fa-hand-holding"></i>
-                       ${pending ? 'Cash taken - hand over' : 'Hand over'}</button>`}
+                       ${onBill ? 'Hand over - add to bill' : pending ? 'Cash taken - hand over' : 'Hand over'}</button>`}
         </div>`;
 }
 

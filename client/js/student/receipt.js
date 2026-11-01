@@ -31,9 +31,9 @@ async function loadReceipt() {
         </tr>
     `).join('');
 
-    const method = order.paymentMethod === 'Cash' ? 'Cash at the counter' : order.paymentMethod;
+    const method = PAYMENT_LABELS[order.paymentMethod] || order.paymentMethod;
     const reference = order.transactionReference ? ` (ID ${order.transactionReference})` : '';
-    document.getElementById('paymentInfo').innerText = `${method}${reference} - ${order.paymentStatus}`;
+    document.getElementById('paymentInfo').innerText = `${method}${reference} - ${PAYMENT_STATUS_LABELS[order.paymentStatus] || order.paymentStatus}`;
     document.getElementById('grandTotal').innerText = formatPrice(order.total);
 
     const track = document.getElementById('trackOrderLink');

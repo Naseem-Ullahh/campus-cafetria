@@ -5,6 +5,8 @@ $(document).ready(async function() {
     if (!user) return;
     loadProfileData();
     updateCartBadge();
+    if (location.hash === '#bill') switchTab('bill');
+    loadBill();
     try {
         myOrders = await getMyOrders();
     } catch (error) {
@@ -15,7 +17,7 @@ $(document).ready(async function() {
     calculateStats();
 });
 
-const USER_TYPES = { student: 'Student', faculty: 'Faculty', staff: 'Staff' };
+const USER_TYPES = { student: 'Student', gc: 'Gentleman Cadet (GC)', army: 'Army personnel', faculty: 'Faculty', staff: 'Staff' };
 
 // Load profile data
 function loadProfileData() {
@@ -170,6 +172,158 @@ function switchTab(tab) {
     $(`.tab-btn[onclick="switchTab('${tab}')"]`).addClass('active');
     $('.tab-content').removeClass('active');
     $(`#${tab}Tab`).addClass('active');
+}
+
+// ---------- Amount Payable (monthly bill) ----------
+let bill = null;
+
+async function loadBill() {
+    try {
+        bill = await getMyAccount();
+    } catch (error) {
+        $('#billSummary').html(`<p class="form-error">Couldn't load your bill: ${escapeHtml(error.message)}</p>`);
+        return;
+    }
+    renderBill();
+}
+
+function renderBill() {
+    const a = bill.account;
+    const toPay = Math.max(a.balance - a.pending_payments, 0);
+    const inProgress = a.spent_this_month - a.charged_this_month;
+
+    // What needs doing, most urgent first
+    let status, statusClass = '';
+    if (a.overdue > 0) {
+        status = `${formatPrice(a.overdue)} is overdue - you can't place new orders until it's paid.`;
+        statusClass = 'is-overdue';
+    } else if (a.previous_unpaid > 0) {
+        status = `${formatPrice(a.previous_unpaid)} from last month is due by ${formatDate(a.previous_due_date)}.`;
+        statusClass = 'is-due';
+    } else if (a.balance > 0) {
+        status = `This month's bill is due by ${formatDate(a.current_due_date)}.`;
+    } else {
+        status = 'You are all paid up.';
+    }
+
+    $('#billSummary').html(`
+        <div class="bill-total"><strong>${formatPrice(a.balance)}</strong><span>owed in total</span></div>
+        <p class="bill-status ${statusClass}">${status}</p>
+        <div class="bill-tiles">
+            <div class="bill-tile ${a.overdue > 0 ? 'is-overdue' : ''}">
+                <span class="label">Earlier months</span>
+                <span class="value">${formatPrice(a.previous_unpaid)}</span>
+                <span class="sub">${a.overdue > 0 ? 'Overdue' : a.previous_unpaid > 0 ? 'Due by ' + formatDate(a.previous_due_date) : 'Nothing due'}</span>
+            </div>
+            <div class="bill-tile">
+                <span class="label">This month so far</span>
+                <span class="value">${formatPrice(a.charged_this_month)}</span>
+                <span class="sub">${inProgress > 0 ? `+ ${formatPrice(inProgress)} in orders not collected yet · ` : ''}Due by ${formatDate(a.current_due_date)}</span>
+            </div>
+            <div class="bill-tile">
+                <span class="label">Monthly limit</span>
+                <span class="value">${formatPrice(a.monthly_limit)}</span>
+                <span class="sub">${!bill.settings.accounts_open ? 'Monthly bill switched off for now'
+                    : !a.account_enabled ? 'Monthly bill not available on your account'
+                    : formatPrice(Math.max(a.monthly_limit - a.spent_this_month, 0)) + ' left this month'}</span>
+            </div>
+            ${a.pending_payments > 0 ? `
+            <div class="bill-tile">
+                <span class="label">Being checked</span>
+                <span class="value">${formatPrice(a.pending_payments)}</span>
+                <span class="sub">Online payment${a.pending_payment_count > 1 ? 's' : ''} waiting for the cashier</span>
+            </div>` : ''}
+        </div>`);
+
+    $('#payBillCard').prop('hidden', toPay <= 0);
+    $('#billAmount').attr('max', Math.ceil(toPay)).val(Math.ceil(toPay) || '');
+    renderStatement();
+    renderBillBanner(toPay);
+}
+
+// Reminder above the stats, so it's seen without opening the tab
+function renderBillBanner(toPay) {
+    const a = bill.account;
+    const banner = $('#billBanner');
+    if (a.overdue > 0) {
+        banner.addClass('is-overdue').html(`<i class="fas fa-exclamation-circle"></i>
+            <span><strong>${formatPrice(a.overdue)} of your monthly bill is overdue.</strong> Pay it to order again.</span>
+            ${toPay > 0 ? `<button type="button" onclick="switchTab('bill')">Pay now</button>` : ''}`);
+    } else if (a.previous_unpaid > 0) {
+        banner.removeClass('is-overdue').html(`<i class="fas fa-file-invoice"></i>
+            <span>Last month's bill of <strong>${formatPrice(a.previous_unpaid)}</strong> is due by ${formatDate(a.previous_due_date)}.</span>
+            ${toPay > 0 ? `<button type="button" onclick="switchTab('bill')">Pay now</button>` : ''}`);
+    } else {
+        banner.prop('hidden', true);
+        return;
+    }
+    banner.prop('hidden', false);
+}
+
+const MONTH_NAME = { month: 'long', year: 'numeric' };
+
+function statementRow(entry) {
+    const when = new Date(entry.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    if (entry.kind === 'charge') {
+        const tag = entry.status === 'Pending' ? '<span class="statement-tag">Not collected yet</span>'
+                  : entry.order_status === 'No Show' ? '<span class="statement-tag warn">Not collected</span>' : '';
+        return `<div class="statement-row">
+            <span class="when">${when}</span>
+            <span class="what"><a href="receipt.html?order=${entry.order_id}">Order ${formatOrderNumber(entry.order_id)}</a>${tag}
+                <small>${escapeHtml(entry.items || '')}</small></span>
+            <span class="amount">${formatPrice(entry.amount)}</span>
+        </div>`;
+    }
+    const how = entry.method === 'Waiver' ? 'Waived by the manager' : entry.method === 'Cash' ? 'Paid cash at the counter' : `Paid by ${entry.method}`;
+    const tag = entry.status === 'Pending' ? '<span class="statement-tag warn">Being checked</span>'
+              : entry.status === 'Rejected' ? '<span class="statement-tag bad">Not accepted</span>' : '';
+    const detail = [entry.transaction_reference ? `ID ${escapeHtml(entry.transaction_reference)}` : '', escapeHtml(entry.note || '')].filter(Boolean).join(' · ');
+    return `<div class="statement-row ${entry.status === 'Rejected' ? 'is-muted' : ''}">
+        <span class="when">${when}</span>
+        <span class="what">${how}${tag}${detail ? `<small>${detail}</small>` : ''}</span>
+        <span class="amount credit">&minus; ${formatPrice(entry.amount)}</span>
+    </div>`;
+}
+
+function renderStatement() {
+    const entries = bill.entries;
+    if (entries.length === 0) {
+        $('#billStatement').html(`<p class="text-muted">Nothing yet. Choose <strong>Add to my monthly bill</strong> at checkout to buy now and pay at the end of the month.</p>`);
+        return;
+    }
+    const months = [];
+    entries.forEach(entry => {
+        const key = new Date(entry.at).toLocaleDateString('en-GB', MONTH_NAME);
+        let month = months.find(m => m.key === key);
+        if (!month) months.push(month = { key, rows: [], charged: 0 });
+        month.rows.push(entry);
+        if (entry.kind === 'charge' && entry.status === 'Billed') month.charged += entry.amount;
+    });
+    $('#billStatement').html(months.map(month => `
+        <section class="statement-month">
+            <h4>${month.key}<span>Charged ${formatPrice(month.charged)}</span></h4>
+            ${month.rows.map(statementRow).join('')}
+        </section>`).join(''));
+}
+
+async function payBill(event) {
+    event.preventDefault();
+    const button = $('#payBillBtn').prop('disabled', true);
+    try {
+        bill = await api('/account/payments', {
+            method: 'POST',
+            body: { amount: Number($('#billAmount').val()), method: $('#billMethod').val(), transaction_reference: $('#billReference').val().trim() }
+        });
+    } catch (error) {
+        $('#billError').text(error.message);
+        button.prop('disabled', false);
+        return;
+    }
+    $('#billError').text('');
+    $('#billReference').val('');
+    button.prop('disabled', false);
+    renderBill();
+    alert('Payment sent. The cashier will check it, and it comes off your bill once confirmed.');
 }
 
 // Save the edit profile form

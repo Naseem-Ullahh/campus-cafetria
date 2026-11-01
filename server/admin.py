@@ -10,8 +10,10 @@ from orders import process_overdue_orders
 
 bp = Blueprint('admin', __name__, url_prefix='/api/admin')
 
-# "Sales" everywhere = completed orders; "revenue" = money actually confirmed
+# "Sales" everywhere = completed orders; "revenue" = money confirmed + orders put on
+# monthly bills (earned, even if the bill isn't paid yet - see Amount receivable)
 COMPLETED = "o.status = 'Completed'"
+EARNED = "p.payment_status IN ('Confirmed', 'Billed')"
 
 
 # ---------- Menu management ----------
@@ -88,7 +90,7 @@ def dashboard():
     today = query_one(
         'SELECT COUNT(*) AS orders, '
         f'       SUM({COMPLETED}) AS completed, '
-        "       COALESCE(SUM(CASE WHEN p.payment_status = 'Confirmed' THEN p.amount END), 0) AS revenue "
+        f"       COALESCE(SUM(CASE WHEN {EARNED} THEN p.amount END), 0) AS revenue "
         'FROM Orders o LEFT JOIN Payments p ON p.order_id = o.order_id '
         'WHERE DATE(o.order_date) = CURDATE()')
     counts = query_one(
@@ -131,7 +133,7 @@ def reports():
         f'       SUM({COMPLETED}) AS completed_orders, '
         "       SUM(o.status IN ('Cancelled', 'Rejected')) AS cancelled_or_rejected, "
         "       SUM(o.status = 'No Show') AS no_shows, "
-        "       COALESCE(SUM(CASE WHEN p.payment_status = 'Confirmed' THEN p.amount END), 0) AS revenue, "
+        f"       COALESCE(SUM(CASE WHEN {EARNED} THEN p.amount END), 0) AS revenue, "
         '       COUNT(DISTINCT o.user_id) AS customers '
         f'FROM Orders o LEFT JOIN Payments p ON p.order_id = o.order_id WHERE {in_range}', args)
     paid = int(summary['completed_orders'] or 0)
@@ -139,7 +141,7 @@ def reports():
 
     daily = query(
         "SELECT DATE(o.order_date) AS day, "
-        "       COALESCE(SUM(CASE WHEN p.payment_status = 'Confirmed' THEN p.amount END), 0) AS revenue, "
+        f"       COALESCE(SUM(CASE WHEN {EARNED} THEN p.amount END), 0) AS revenue, "
         '       COUNT(*) AS orders '
         f'FROM Orders o LEFT JOIN Payments p ON p.order_id = o.order_id WHERE {in_range} '
         'GROUP BY DATE(o.order_date) ORDER BY day', args)
@@ -155,7 +157,7 @@ def reports():
         f'WHERE {COMPLETED} AND {in_range} GROUP BY m.item_id ORDER BY units DESC, sales DESC LIMIT 10', args)
     payment_methods = query(
         "SELECT p.payment_method, COUNT(*) AS payments, SUM(p.amount) AS amount "
-        f"FROM Orders o JOIN Payments p ON p.order_id = o.order_id WHERE p.payment_status = 'Confirmed' AND {in_range} "
+        f"FROM Orders o JOIN Payments p ON p.order_id = o.order_id WHERE {EARNED} AND {in_range} "
         'GROUP BY p.payment_method', args)
 
     return jsonify(start=start.isoformat(), end=end.isoformat(), summary=summary, daily=daily,

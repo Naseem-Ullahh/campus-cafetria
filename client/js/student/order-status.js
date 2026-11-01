@@ -15,8 +15,6 @@ const CLOSED = {
     'No Show': { title: 'Not collected', icon: 'fa-user-clock' }
 };
 
-const PAYMENT_LABELS = { Cash: 'Cash at the counter', Easypaisa: 'Easypaisa', JazzCash: 'JazzCash' };
-
 let currentOrder = null;
 let pollTimer = null;
 
@@ -61,7 +59,9 @@ function render() {
     const reference = order.transactionReference ? ` · ID ${order.transactionReference}` : '';
     document.getElementById('paymentMethod').textContent =
         `${PAYMENT_LABELS[order.paymentMethod] || order.paymentMethod}${reference}`;
-    document.getElementById('paymentStatus').textContent = PAYMENT_STATUS_LABELS[order.paymentStatus] || order.paymentStatus;
+    document.getElementById('paymentStatus').textContent = order.paymentMethod === 'Account' && order.paymentStatus === 'Pending'
+        ? 'Added to your monthly bill at pickup'
+        : PAYMENT_STATUS_LABELS[order.paymentStatus] || order.paymentStatus;
     document.getElementById('totalAmount').textContent = formatPrice(order.total);
     document.getElementById('grandTotal').textContent = formatPrice(order.total);
 
@@ -79,13 +79,6 @@ function render() {
     renderCancel();
 }
 
-const PAYMENT_STATUS_LABELS = {
-    Pending: 'Not paid yet',
-    Confirmed: 'Paid',
-    Refunded: 'Refunded',
-    Void: 'Not charged'
-};
-
 // Big banner at the top: what the customer should know right now
 const HEADERS = {
     Received:  ['fa-check', 'Order placed!', 'The cafeteria will accept it within 10 minutes - this page updates on its own.'],
@@ -95,7 +88,7 @@ const HEADERS = {
     Completed: ['fa-check-circle', 'Enjoy your meal!', 'Thanks for ordering with us.'],
     Cancelled: ['fa-ban', 'Order cancelled', ''],
     Rejected:  ['fa-times', "We couldn't take this order", 'See the reason below. '],
-    'No Show': ['fa-user-clock', 'Order not collected', 'Please pay at the counter before ordering again.']
+    'No Show': ['fa-user-clock', 'Order not collected', 'The food was made, so it is charged to your monthly bill.']
 };
 
 function renderHeader() {
@@ -128,8 +121,9 @@ function renderTimeline() {
             <div>
                 <strong>${closed.title}</strong>
                 ${order.closeReason ? `<p>${escapeHtml(order.closeReason)}</p>` : ''}
-                ${order.status === 'No Show' && order.paymentStatus === 'Pending'
-                    ? `<p>${formatPrice(order.total)} is still owed - please pay at the counter before your next order.</p>` : ''}
+                ${order.status === 'No Show' && order.paymentStatus === 'Billed'
+                    ? `<p>${formatPrice(order.total)} has been added to your monthly bill. If you did collect it, ask the cashier to correct it.
+                       <a href="profile.html#bill">See your bill</a></p>` : ''}
             </div>`;
     }
 

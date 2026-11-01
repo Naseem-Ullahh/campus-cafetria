@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amount receivable - Signals Std. Cafe'</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Cormorant+Garamond:wght@500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../css/theme.css">
+
+    <link rel="stylesheet" href="../../css/admin/boards.css">
+    <link rel="stylesheet" href="../../css/admin/receivables.css">
+</head>
+<body class="board-page soft-ui">
+
+    <header class="board-bar">
+        <span class="brand-script">Signals Std. Cafe'</span>
+        <nav class="board-nav" id="boardNav" aria-label="Staff screens"></nav>
+        <div class="board-user">
+            <span id="staffName"></span>
+            <button type="button" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </header>
+
+    <main class="board-main">
+        <div class="board-head">
+            <h1>Amount receivable</h1>
+        </div>
+        <p class="board-help muted">What customers owe on their monthly bills. A month's bill is due on the
+            <strong id="dueDayText">10th</strong> of the next month; after that the customer can't order until it's paid.</p>
+
+        <section class="totals" aria-label="Totals">
+            <div class="total"><span class="label">Owed to the cafeteria</span><strong id="totalOutstanding">&mdash;</strong><span class="sub" id="totalOwing"></span></div>
+            <div class="total"><span class="label">Overdue</span><strong id="totalOverdue">&mdash;</strong><span class="sub" id="totalBlocked"></span></div>
+            <div class="total"><span class="label">Online payments to check</span><strong id="totalToVerify">&mdash;</strong><span class="sub">Easypaisa / JazzCash</span></div>
+            <div class="total is-good"><span class="label">Collected this month</span><strong id="totalCollected">&mdash;</strong><span class="sub">Cash and wallet payments</span></div>
+        </section>
+
+        <!-- Online bill payments the customer submitted, waiting for the merchant-app check -->
+        <section class="panel" id="pendingPanel" hidden>
+            <h2><i class="fas fa-mobile-alt"></i> Check these online payments</h2>
+            <p class="muted small">Find each transaction ID in the cafeteria's Easypaisa / JazzCash merchant app, then confirm it or say why not.</p>
+            <div class="pending-list" id="pendingList"></div>
+        </section>
+
+        <section class="panel">
+            <div class="list-tools">
+                <div class="segmented" role="group" aria-label="Show">
+                    <button type="button" data-show="owing" class="active">Owing</button>
+                    <button type="button" data-show="overdue">Overdue</button>
+                    <button type="button" data-show="verify">To check</button>
+                    <button type="button" data-show="all">All customers</button>
+                </div>
+                <label class="sr-only" for="search">Search customers</label>
+                <input type="search" id="search" class="form-control" placeholder="Search name, ID or phone">
+            </div>
+            <div class="table-scroll">
+                <table class="accounts-table">
+                    <thead>
+                        <tr><th>Customer</th><th class="num">Owed</th><th class="num">Overdue</th><th class="num">This month</th><th class="num">Limit</th><th>Last payment</th><th><span class="sr-only">Open</span></th></tr>
+                    </thead>
+                    <tbody id="accountsBody"><tr><td colspan="7" class="muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Manager only -->
+        <details class="panel" id="settingsPanel" hidden>
+            <summary><i class="fas fa-sliders-h"></i> Billing settings</summary>
+            <form id="settingsForm" class="settings-form">
+                <label class="check"><input type="checkbox" id="accountsOpen"> Customers can choose <em>Add to my monthly bill</em> at checkout</label>
+                <div class="field-row">
+                    <label>Bill due on day <input type="number" id="dueDay" min="1" max="28" required class="form-control"></label>
+                    <label>Default monthly limit (Rs.) <input type="number" id="defaultLimit" min="0" step="100" required class="form-control"></label>
+                </div>
+                <p class="muted small">Changing the due day or limit applies to every bill straight away. Per-customer limits are set on each customer.</p>
+                <p class="form-error" id="settingsError" role="alert"></p>
+                <button type="submit" class="btn-act primary">Save settings</button>
+            </form>
+        </details>
+    </main>
+
+    <!-- One customer's bill -->
+    <dialog id="accountDialog" aria-labelledby="dialogTitle">
+        <div class="dialog-head">
+            <div>
+                <h2 id="dialogTitle"></h2>
+                <p class="muted" id="dialogMeta"></p>
+            </div>
+            <button type="button" class="dialog-close" onclick="closeAccount()" aria-label="Close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="dialog-summary" id="dialogSummary"></div>
+
+        <form id="paymentForm" class="dialog-section">
+            <h3>Record a payment</h3>
+            <div class="field-row">
+                <label>Amount (Rs.) <input type="number" id="payAmount" min="1" step="1" required class="form-control"></label>
+                <label>Method
+                    <select id="payMethod" class="form-control">
+                        <option value="Cash">Cash received</option>
+                        <option value="Easypaisa">Easypaisa (checked in the app)</option>
+                        <option value="JazzCash">JazzCash (checked in the app)</option>
+                        <option value="Waiver" data-admin>Waive (write off)</option>
+                    </select>
+                </label>
+            </div>
+            <label id="payReferenceRow" hidden>Transaction ID <input type="text" id="payReference" maxlength="50" class="form-control" autocomplete="off"></label>
+            <label id="payNoteRow"><span>Note <span class="muted" id="payNoteHint">(optional)</span></span> <input type="text" id="payNote" maxlength="255" class="form-control"></label>
+            <p class="form-error" id="paymentError" role="alert"></p>
+            <button type="submit" class="btn-act primary" id="paymentBtn"><i class="fas fa-check"></i> Record payment</button>
+        </form>
+
+        <form id="limitForm" class="dialog-section" hidden>
+            <h3>Monthly bill for this customer</h3>
+            <label class="check"><input type="checkbox" id="accountEnabled"> Allowed to use the monthly bill</label>
+            <label>Monthly limit (Rs.) <input type="number" id="customerLimit" min="0" step="100" class="form-control" placeholder="Default"></label>
+            <p class="muted small">Leave the limit empty to use the default.</p>
+            <p class="form-error" id="limitError" role="alert"></p>
+            <button type="submit" class="btn-act">Save</button>
+        </form>
+
+        <div class="dialog-section">
+            <h3>Statement</h3>
+            <div id="dialogStatement"></div>
+        </div>
+    </dialog>
+
+    <script src="../../js/store.js"></script>
+    <script src="../../js/admin/receivables.js"></script>
+</body>
+</html>

@@ -16,6 +16,7 @@ from werkzeug.exceptions import HTTPException
 
 import admin
 import auth
+import billing
 import config
 import orders
 import staff
@@ -49,7 +50,7 @@ def create_app():
         PERMANENT_SESSION_LIFETIME=timedelta(days=7),
     )
 
-    for module in (auth, orders, staff, admin):
+    for module in (auth, orders, staff, admin, billing):
         app.register_blueprint(module.bp)
     app.teardown_appcontext(close_db)
 

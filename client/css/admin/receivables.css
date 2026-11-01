@@ -1,0 +1,92 @@
+/* Amount receivable - uses the staff board layout (boards.css) */
+
+.small { font-size: 13px; }
+#accountDialog, #accountDialog *, .panel, .panel * { box-sizing: border-box; }
+.board-page .form-control {
+    width: 100%; padding: 9px 12px; border: 2px solid var(--border);
+    background: var(--field); color: var(--text); font: inherit;
+}
+.board-page .form-control:focus { outline: none; border-color: var(--teal); box-shadow: var(--focus-ring); }
+.form-error { color: var(--error); font-weight: 600; min-height: 1.2em; margin: 6px 0; }
+
+/* Totals */
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.total { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.total .label { font-size: 13px; color: var(--text-muted); }
+.total strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+.total .sub { font-size: 13px; color: var(--text-muted); }
+.total.is-bad strong, .total.is-bad .sub { color: var(--error); }
+.total.is-good strong { color: var(--teal-text); }
+
+/* Panels */
+.panel { margin-bottom: 20px; padding: 16px clamp(14px, 2vw, 20px); background: var(--surface); box-shadow: var(--shadow-sm); }
+.panel h2 { margin: 0 0 4px; font-size: 20px; }
+.panel[hidden] { display: none; }
+.pending-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.pending-card {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+    padding: 12px 14px; background: var(--field); border-left: 4px solid var(--amber);
+}
+
+.list-tools { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 12px; }
+.list-tools input { max-width: 320px; }
+.segmented { display: flex; flex-wrap: wrap; }
+.segmented button {
+    padding: 8px 14px; border: 2px solid var(--dark); margin-right: -2px;
+    background: transparent; color: var(--dark); font: inherit; font-weight: 600; cursor: pointer;
+}
+.segmented button.active { background: var(--dark); color: var(--cream); }
+
+/* Customer list */
+.accounts-table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 15px; }
+.accounts-table th { text-align: left; font-size: 13px; color: var(--text-muted); font-weight: 600; padding: 8px; border-bottom: 2px solid var(--border); }
+.accounts-table td { padding: 10px 8px; border-bottom: 1px solid var(--surface-2); vertical-align: top; }
+.accounts-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.accounts-table tr.is-overdue td:first-child { box-shadow: inset 4px 0 0 var(--error); }
+.overdue { color: var(--error); font-weight: 700; }
+.tag { display: inline-block; padding: 0 6px; font-size: 12px; font-weight: 600; background: var(--muted-tint); color: var(--muted-text); }
+.tag.warn { background: var(--amber-tint); color: var(--amber-text); }
+.tag.bad { background: var(--error-tint); color: var(--error); }
+
+/* Settings */
+.panel summary { cursor: pointer; font-weight: 700; font-size: 18px; }
+.settings-form { margin-top: 14px; max-width: 620px; }
+.field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 12px 0; }
+.field-row label, .dialog-section > label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600; }
+.dialog-section > label { margin-bottom: 10px; }
+label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 600; }
+label[hidden] { display: none !important; }
+
+/* Customer dialog */
+#accountDialog {
+    width: min(720px, calc(100vw - 24px)); max-height: calc(100vh - 32px); padding: 0;
+    border: 0; background: var(--cream); color: var(--text); box-shadow: var(--shadow-md);
+}
+#accountDialog::backdrop { background: rgba(43, 29, 22, .55); }
+.dialog-head {
+    position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; gap: 12px;
+    padding: 16px 20px; background: var(--dark); color: var(--cream);
+}
+.dialog-head h2 { margin: 0; font-size: 22px; color: var(--cream); }
+.dialog-head .muted { color: var(--dark-tint); margin: 2px 0 0; }
+.dialog-close { border: 0; background: transparent; color: var(--cream); font-size: 20px; cursor: pointer; align-self: flex-start; }
+.dialog-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 16px 20px 0; }
+.dialog-summary .total strong { font-size: 22px; }
+.dialog-section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.dialog-section[hidden] { display: none; }
+.dialog-section h3 { margin: 0 0 8px; font-size: 17px; }
+
+.statement-row { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--surface-2); }
+.statement-row .when { flex: 0 0 92px; font-size: 13px; color: var(--text-muted); }
+.statement-row .what { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.statement-row .what small { display: block; color: var(--text-muted); }
+.statement-row .amount { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.statement-row .amount.credit { color: var(--teal-text); }
+.statement-row.is-muted .amount { color: var(--text-muted); text-decoration: line-through; }
+
+#accountDialog .board-toast { position: fixed; }
+
+@media (max-width: 600px) {
+    .statement-row .when { flex-basis: 70px; }
+    .list-tools input { max-width: none; }
+}

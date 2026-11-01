@@ -178,6 +178,53 @@ test('manager: dashboard, history with names, reports, menu change reaches stude
     await student.waitForFunction(() => document.body.textContent.includes('Kashmiri Chai'));
 });
 
+test('monthly bill: order on the bill, hand over, pay online, cashier confirms', async () => {
+    await student.goto(BASE + 'pages/student/home.html', { waitUntil: 'networkidle0' });
+    await student.waitForSelector('.food-card');
+    await addByName(student, 'Coffee');
+    await addByName(student, 'Coffee');
+    await student.goto(BASE + 'pages/student/checkout.html', { waitUntil: 'networkidle0' });
+    await student.waitForSelector('#accountOption:not([hidden])');
+    assert.match(await text(student, '#accountOptionText'), /Rs\. 15,000 left of your Rs\. 15,000 limit/);
+    await student.click('#accountOption');
+    await Promise.all([student.waitForNavigation({ waitUntil: 'networkidle0' }), student.click('#placeOrderBtn')]);
+    await student.waitForFunction(() => document.getElementById('paymentInfo').innerText !== '');
+    assert.match(await text(student, '#paymentInfo'), /^Monthly bill/);
+    const billId = Number((await text(student, '#orderId')).replace('#', ''));
+
+    await cashier.goto(BASE + 'pages/admin/incoming.html', { waitUntil: 'networkidle0' });
+    await cashier.waitForSelector(`[data-order="${billId}"]`);
+    assert.match(await text(cashier, `[data-order="${billId}"] .card-pay`), /Monthly bill/);
+    await cashier.click(`[data-order="${billId}"] .btn-act.primary`);
+    await chef.waitForSelector(`#column-todo [data-order="${billId}"]`, { timeout: 15000 });
+    await chef.click(`[data-order="${billId}"] .btn-act`);
+    await chef.waitForSelector(`#column-cooking [data-order="${billId}"]`);
+    await chef.click(`[data-order="${billId}"] .btn-act`);
+    await cashier.goto(BASE + 'pages/admin/counter.html', { waitUntil: 'networkidle0' });
+    await cashier.waitForSelector(`[data-order="${billId}"]`);
+    assert.equal(await text(cashier, `[data-order="${billId}"] .card-actions button`), 'Hand over - add to bill');
+    await cashier.click(`[data-order="${billId}"] .card-actions button`);
+    await cashier.waitForFunction(id => !document.querySelector(`[data-order="${id}"]`), {}, billId);
+
+    await student.goto(BASE + 'pages/student/profile.html#bill', { waitUntil: 'networkidle0' });
+    await student.waitForSelector('.bill-total');
+    assert.equal(await text(student, '.bill-total strong'), 'Rs. 100');
+    await student.select('#billMethod', 'JazzCash');
+    await student.type('#billReference', 'JC20261101');
+    await student.click('#payBillBtn');
+    await student.waitForFunction(() => document.getElementById('billStatement').textContent.includes('Being checked'));
+
+    await cashier.goto(BASE + 'pages/admin/receivables.html?show=verify', { waitUntil: 'networkidle0' });
+    await cashier.waitForSelector('.pending-card');
+    assert.match(await text(cashier, '.pending-card'), /Rs\. 100 by JazzCash · ID JC20261101/);
+    await cashier.click('.pending-card .btn-act.primary');
+    await cashier.waitForFunction(() => document.getElementById('pendingPanel').hidden);
+    await student.reload({ waitUntil: 'networkidle0' });
+    await student.waitForSelector('.bill-total');
+    assert.equal(await text(student, '.bill-total strong'), 'Rs. 0');
+    assert.match(await text(student, '.bill-status'), /all paid up/);
+});
+
 test('role guards hold in the browser', async () => {
     await student.goto(BASE + 'pages/admin/dashboard.html', { waitUntil: 'networkidle0' });
     assert.ok(student.url().endsWith('admin/login.html'));
@@ -185,6 +232,8 @@ test('role guards hold in the browser', async () => {
     assert.ok(cashier.url().endsWith('incoming.html'));
     await chef.goto(BASE + 'pages/admin/counter.html', { waitUntil: 'networkidle0' });
     assert.ok(chef.url().endsWith('kitchen.html'));
+    await chef.goto(BASE + 'pages/admin/receivables.html', { waitUntil: 'networkidle0' });
+    assert.ok(chef.url().endsWith('kitchen.html'), 'kitchen cannot see the money');
     await manager.goto(BASE + 'pages/student/home.html', { waitUntil: 'networkidle0' });
     assert.ok(manager.url().endsWith('student/login.html'), 'staff accounts cannot use the student menu');
 });

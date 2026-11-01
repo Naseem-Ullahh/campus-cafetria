@@ -12,12 +12,14 @@ DELIMITER $$
 -- Stock checks / deduction and the order total are done by triggers.
 --
 -- Rules:
---  * account must be active and have no unpaid No Show orders
+--  * account must be active and have nothing overdue on its monthly bill
 --  * pickup time between 15 minutes and 24 hours from now
 --  * cafeteria must accept within 10 minutes
 --  * customer may cancel until 20 minutes before pickup
 --    (but always gets at least 5 minutes after ordering)
 --  * Easypaisa / JazzCash need a transaction reference; cash must not have one
+--  * Account (monthly bill): offered by the cafeteria, allowed for this
+--    customer, and this month's bill must stay within their limit
 -- ---------------------------------------------------------------------
 CREATE PROCEDURE PlaceOrder(
     IN  p_user_id               INT,
@@ -29,7 +31,11 @@ CREATE PROCEDURE PlaceOrder(
 )
 BEGIN
     DECLARE v_is_active BOOLEAN;
-    DECLARE v_dues DECIMAL(10,2);
+    DECLARE v_overdue DECIMAL(10,2);
+    DECLARE v_account_enabled BOOLEAN;
+    DECLARE v_limit DECIMAL(10,2);
+    DECLARE v_spent DECIMAL(10,2);
+    DECLARE v_order_total DECIMAL(10,2);
     DECLARE v_msg VARCHAR(255);
     DECLARE v_locked INT;
 
@@ -49,15 +55,11 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This account is deactivated';
     END IF;
 
-    -- No Show orders that were never paid block new orders
-    SELECT COALESCE(SUM(p.amount), 0) INTO v_dues
-      FROM Orders o
-      JOIN Payments p ON p.order_id = o.order_id
-     WHERE o.user_id = p_user_id
-       AND o.status = 'No Show'
-       AND p.payment_status = 'Pending';
-    IF v_dues > 0 THEN
-        SET v_msg = CONCAT('You have Rs. ', v_dues, ' unpaid from an uncollected order. Please pay at the counter first.');
+    -- A monthly bill not paid by its due date blocks new orders
+    SELECT overdue INTO v_overdue FROM Account_Balances WHERE user_id = p_user_id;
+    IF v_overdue > 0 THEN
+        SET v_msg = CONCAT('Rs. ', FORMAT(v_overdue, 0), ' of your monthly bill is overdue. ',
+                           'Pay it (Profile > Amount Payable) to order again.');
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
     END IF;
 
@@ -68,14 +70,23 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Pickup time must be within the next 24 hours';
     END IF;
 
-    IF p_payment_method NOT IN ('Cash', 'Easypaisa', 'JazzCash') THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment method must be Cash, Easypaisa or JazzCash';
+    IF p_payment_method IS NULL OR p_payment_method NOT IN ('Cash', 'Easypaisa', 'JazzCash', 'Account') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment method must be Cash, Easypaisa, JazzCash or Monthly bill';
     END IF;
-    IF p_payment_method <> 'Cash' AND p_transaction_reference IS NULL THEN
+    IF p_payment_method IN ('Easypaisa', 'JazzCash') AND p_transaction_reference IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Enter the transaction ID from your Easypaisa / JazzCash payment';
     END IF;
-    IF p_payment_method = 'Cash' THEN
+    IF p_payment_method IN ('Cash', 'Account') THEN
         SET p_transaction_reference = NULL;
+    END IF;
+    IF p_payment_method = 'Account' THEN
+        IF NOT (SELECT accounts_open FROM Billing_Settings WHERE setting_id = 1) THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Paying with the monthly bill is switched off right now - choose another payment method';
+        END IF;
+        SELECT account_enabled INTO v_account_enabled FROM Users WHERE user_id = p_user_id;
+        IF NOT v_account_enabled THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'The monthly bill is not available on your account - pay with Cash, Easypaisa or JazzCash';
+        END IF;
     END IF;
 
     START TRANSACTION;
@@ -102,6 +113,20 @@ BEGIN
 
     IF (SELECT COUNT(*) FROM tmp_order_lines) = 0 THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Your cart is empty';
+    END IF;
+
+    -- Monthly limit. The customer's row is locked first, so two orders placed
+    -- at the same moment can't both squeeze under the limit.
+    IF p_payment_method = 'Account' THEN
+        SELECT COUNT(*) INTO v_locked FROM Users WHERE user_id = p_user_id FOR UPDATE;
+        SELECT monthly_limit, spent_this_month INTO v_limit, v_spent
+          FROM Account_Balances WHERE user_id = p_user_id;
+        SELECT SUM(quantity * unit_price) INTO v_order_total FROM tmp_order_lines;
+        IF v_spent + v_order_total > v_limit THEN
+            SET v_msg = CONCAT('This order would take your monthly bill over its Rs. ', FORMAT(v_limit, 0),
+                               ' limit (Rs. ', FORMAT(GREATEST(v_limit - v_spent, 0), 0), ' left this month)');
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+        END IF;
     END IF;
 
     INSERT INTO Orders (user_id, requested_pickup_time, acceptance_deadline,
@@ -272,18 +297,23 @@ END$$
 -- ---------------------------------------------------------------------
 -- ConfirmPayment: cashier received cash / verified a wallet transaction
 -- in the cafeteria's Easypaisa / JazzCash merchant app.
--- Also used to collect money owed for a No Show order.
+-- A wallet payment that was still unchecked when the order became a No
+-- Show (so it went on the monthly bill) can be verified later - that
+-- takes it off the bill. Monthly-bill orders are paid with the bill.
 -- ---------------------------------------------------------------------
 CREATE PROCEDURE ConfirmPayment(IN p_order_id INT, IN p_staff_id INT)
 BEGIN
     DECLARE v_status VARCHAR(20);
+    DECLARE v_method VARCHAR(20);
 
     CALL CheckStaff(p_staff_id, 'admin,cashier', 'Only the manager or cashier can confirm payments');
 
-    SELECT payment_status INTO v_status FROM Payments WHERE order_id = p_order_id;
+    SELECT payment_status, payment_method INTO v_status, v_method FROM Payments WHERE order_id = p_order_id;
     IF v_status IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No payment found for this order';
-    ELSEIF v_status <> 'Pending' THEN
+    ELSEIF v_method = 'Account' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This order is on the monthly bill - record the payment against the bill';
+    ELSEIF NOT (v_status = 'Pending' OR (v_status = 'Billed' AND v_method <> 'Cash')) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This payment is not pending';
     END IF;
 
@@ -294,8 +324,8 @@ END$$
 
 -- ---------------------------------------------------------------------
 -- CompletePickup: customer collects the food at the counter. Takes the
--- payment if it is still pending (e.g. cash) and completes the order in
--- one transaction.
+-- payment if it is still pending (e.g. cash) - or adds it to the monthly
+-- bill - and completes the order in one transaction.
 -- ---------------------------------------------------------------------
 CREATE PROCEDURE CompletePickup(IN p_order_id INT, IN p_staff_id INT)
 BEGIN
@@ -319,13 +349,282 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only ready orders can be handed over';
     END IF;
 
-    IF (SELECT payment_status FROM Payments WHERE order_id = p_order_id) = 'Pending' THEN
+    IF (SELECT payment_method FROM Payments WHERE order_id = p_order_id) = 'Account' THEN
+        UPDATE Payments SET payment_status = 'Billed'
+         WHERE order_id = p_order_id AND payment_status = 'Pending';
+    ELSEIF (SELECT payment_status FROM Payments WHERE order_id = p_order_id) = 'Pending' THEN
         CALL ConfirmPayment(p_order_id, p_staff_id);
     END IF;
 
     SET @actor_id = p_staff_id, @status_note = NULL;
     UPDATE Orders SET status = 'Completed' WHERE order_id = p_order_id;
     SET @actor_id = NULL;
+
+    COMMIT;
+END$$
+
+-- ---------------------------------------------------------------------
+-- MarkCollected: the customer DID collect (and pay for) a No Show order,
+-- but the cashier didn't record it in time. Turns it into Completed, takes
+-- it off the monthly bill (the cash was taken at the counter) and records
+-- who corrected it. Monthly-bill orders stay on the bill.
+-- ---------------------------------------------------------------------
+CREATE PROCEDURE MarkCollected(IN p_order_id INT, IN p_staff_id INT)
+BEGIN
+    DECLARE v_status VARCHAR(20);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SET @actor_id = NULL, @status_note = NULL;
+        RESIGNAL;
+    END;
+
+    CALL CheckStaff(p_staff_id, 'admin,cashier', 'Only the manager or cashier can correct an order');
+
+    START TRANSACTION;
+
+    SELECT status INTO v_status FROM Orders WHERE order_id = p_order_id FOR UPDATE;
+    IF v_status IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Order not found';
+    ELSEIF v_status <> 'No Show' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only No Show orders can be marked as collected';
+    END IF;
+
+    UPDATE Payments
+       SET payment_status = 'Confirmed', verified_by = p_staff_id, verified_at = NOW()
+     WHERE order_id = p_order_id AND payment_method <> 'Account' AND payment_status IN ('Pending', 'Billed');
+
+    SET @actor_id = p_staff_id, @status_note = 'Collected - recorded late by staff';
+    UPDATE Orders SET status = 'Completed' WHERE order_id = p_order_id;
+    SET @actor_id = NULL, @status_note = NULL;
+
+    COMMIT;
+END$$
+
+-- =====================================================================
+-- MONTHLY BILL PAYMENTS
+-- Each locks the customer's row first, so two payments for the same bill
+-- (e.g. cashier and customer at the same moment) can't overpay it.
+-- =====================================================================
+
+-- CheckReferenceUnused: a wallet transaction ID can pay for only one thing
+CREATE PROCEDURE CheckReferenceUnused(IN p_reference VARCHAR(50))
+BEGIN
+    IF EXISTS (SELECT 1 FROM Payments WHERE transaction_reference = p_reference)
+       OR EXISTS (SELECT 1 FROM Account_Payments WHERE transaction_reference = p_reference) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This transaction ID has already been used';
+    END IF;
+END$$
+
+-- ---------------------------------------------------------------------
+-- SubmitAccountPayment: customer paid (part of) their bill by Easypaisa /
+-- JazzCash and enters the transaction ID. Pending until a cashier checks it.
+-- ---------------------------------------------------------------------
+CREATE PROCEDURE SubmitAccountPayment(
+    IN  p_user_id   INT,
+    IN  p_amount    DECIMAL(10,2),
+    IN  p_method    VARCHAR(20),
+    IN  p_reference VARCHAR(50),
+    OUT p_new_id    INT
+)
+BEGIN
+    DECLARE v_owed DECIMAL(10,2);
+    DECLARE v_locked INT;
+    DECLARE v_msg VARCHAR(255);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET p_reference = NULLIF(TRIM(p_reference), '');
+    IF p_method IS NULL OR p_method NOT IN ('Easypaisa', 'JazzCash') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Pay online with Easypaisa or JazzCash';
+    END IF;
+    IF p_reference IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Enter the transaction ID from your payment message';
+    END IF;
+    IF p_amount IS NULL OR p_amount <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Enter the amount you paid';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT COUNT(*) INTO v_locked FROM Users
+     WHERE user_id = p_user_id AND role = 'customer' AND is_active FOR UPDATE;
+    IF v_locked = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Customer account not found';
+    END IF;
+    CALL CheckReferenceUnused(p_reference);
+
+    -- What is owed and not already waiting to be checked
+    SELECT balance - pending_payments INTO v_owed FROM Account_Balances WHERE user_id = p_user_id;
+    IF v_owed <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'There is nothing left to pay on your bill';
+    ELSEIF p_amount > v_owed THEN
+        SET v_msg = CONCAT('That is more than you owe - the most you can pay is Rs. ', FORMAT(v_owed, 0));
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+    END IF;
+
+    INSERT INTO Account_Payments (user_id, amount, method, status, transaction_reference, submitted_by)
+    VALUES (p_user_id, p_amount, p_method, 'Pending', p_reference, p_user_id);
+    SET p_new_id = LAST_INSERT_ID();
+
+    COMMIT;
+END$$
+
+-- ---------------------------------------------------------------------
+-- RecordAccountPayment: staff take a payment towards a customer's bill.
+--   Cash / Easypaisa / JazzCash (manager or cashier): money received, or a
+--     wallet transfer already checked in the merchant app -> Confirmed.
+--   Waiver (manager only): writes the amount off; a reason is required.
+-- ---------------------------------------------------------------------
+CREATE PROCEDURE RecordAccountPayment(
+    IN  p_user_id   INT,
+    IN  p_staff_id  INT,
+    IN  p_amount    DECIMAL(10,2),
+    IN  p_method    VARCHAR(20),
+    IN  p_reference VARCHAR(50),
+    IN  p_note      VARCHAR(255),
+    OUT p_new_id    INT
+)
+BEGIN
+    DECLARE v_balance DECIMAL(10,2);
+    DECLARE v_locked INT;
+    DECLARE v_msg VARCHAR(255);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET p_reference = NULLIF(TRIM(p_reference), ''), p_note = NULLIF(TRIM(p_note), '');
+    IF p_method IS NULL OR p_method NOT IN ('Cash', 'Easypaisa', 'JazzCash', 'Waiver') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment method must be Cash, Easypaisa, JazzCash or Waiver';
+    END IF;
+    IF p_method = 'Waiver' THEN
+        CALL CheckStaff(p_staff_id, 'admin', 'Only the manager can waive a bill');
+        IF p_note IS NULL THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A reason is required to waive a bill';
+        END IF;
+    ELSE
+        CALL CheckStaff(p_staff_id, 'admin,cashier', 'Only the manager or cashier can record payments');
+    END IF;
+    IF p_method IN ('Easypaisa', 'JazzCash') AND p_reference IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Enter the transaction ID of the Easypaisa / JazzCash payment';
+    END IF;
+    IF p_method IN ('Cash', 'Waiver') THEN
+        SET p_reference = NULL;
+    END IF;
+    IF p_amount IS NULL OR p_amount <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Enter an amount greater than zero';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT COUNT(*) INTO v_locked FROM Users WHERE user_id = p_user_id AND role = 'customer' FOR UPDATE;
+    IF v_locked = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Customer account not found';
+    END IF;
+    IF p_reference IS NOT NULL THEN
+        CALL CheckReferenceUnused(p_reference);
+    END IF;
+
+    SELECT balance INTO v_balance FROM Account_Balances WHERE user_id = p_user_id;
+    IF v_balance <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This customer does not owe anything';
+    ELSEIF p_amount > v_balance THEN
+        SET v_msg = CONCAT('That is more than the customer owes (Rs. ', FORMAT(v_balance, 0), ')');
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+    END IF;
+
+    INSERT INTO Account_Payments (user_id, amount, method, status, transaction_reference, note,
+                                  submitted_by, verified_by, verified_at)
+    VALUES (p_user_id, p_amount, p_method, 'Confirmed', p_reference, p_note, p_staff_id, p_staff_id, NOW());
+    SET p_new_id = LAST_INSERT_ID();
+
+    COMMIT;
+END$$
+
+-- ---------------------------------------------------------------------
+-- ConfirmAccountPayment / RejectAccountPayment: cashier checked an online
+-- bill payment in the merchant app. Rejecting needs a reason the customer
+-- will see (e.g. "No payment with this ID").
+-- ---------------------------------------------------------------------
+CREATE PROCEDURE ConfirmAccountPayment(IN p_payment_id INT, IN p_staff_id INT)
+BEGIN
+    DECLARE v_user_id INT;
+    DECLARE v_amount DECIMAL(10,2);
+    DECLARE v_status VARCHAR(20);
+    DECLARE v_balance DECIMAL(10,2);
+    DECLARE v_locked INT;
+    DECLARE v_msg VARCHAR(255);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    CALL CheckStaff(p_staff_id, 'admin,cashier', 'Only the manager or cashier can confirm payments');
+
+    START TRANSACTION;
+
+    SELECT user_id INTO v_user_id FROM Account_Payments WHERE account_payment_id = p_payment_id;
+    IF v_user_id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment not found';
+    END IF;
+    SELECT COUNT(*) INTO v_locked FROM Users WHERE user_id = v_user_id FOR UPDATE;
+    SELECT amount, status INTO v_amount, v_status
+      FROM Account_Payments WHERE account_payment_id = p_payment_id FOR UPDATE;
+    IF v_status <> 'Pending' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This payment has already been checked';
+    END IF;
+
+    SELECT balance INTO v_balance FROM Account_Balances WHERE user_id = v_user_id;
+    IF v_amount > v_balance THEN
+        SET v_msg = CONCAT('This payment is more than the customer now owes (Rs. ', FORMAT(GREATEST(v_balance, 0), 0),
+                           ') - reject it and settle the difference with the customer');
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+    END IF;
+
+    UPDATE Account_Payments
+       SET status = 'Confirmed', verified_by = p_staff_id, verified_at = NOW()
+     WHERE account_payment_id = p_payment_id;
+
+    COMMIT;
+END$$
+
+CREATE PROCEDURE RejectAccountPayment(IN p_payment_id INT, IN p_staff_id INT, IN p_reason VARCHAR(255))
+BEGIN
+    DECLARE v_status VARCHAR(20);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    CALL CheckStaff(p_staff_id, 'admin,cashier', 'Only the manager or cashier can reject payments');
+    IF COALESCE(TRIM(p_reason), '') = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A reason is required to reject a payment';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT status INTO v_status FROM Account_Payments WHERE account_payment_id = p_payment_id FOR UPDATE;
+    IF v_status IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Payment not found';
+    ELSEIF v_status <> 'Pending' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This payment has already been checked';
+    END IF;
+
+    UPDATE Account_Payments
+       SET status = 'Rejected', note = TRIM(p_reason), verified_by = p_staff_id, verified_at = NOW()
+     WHERE account_payment_id = p_payment_id;
 
     COMMIT;
 END$$

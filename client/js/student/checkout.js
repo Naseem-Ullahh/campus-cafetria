@@ -16,8 +16,41 @@ document.addEventListener('DOMContentLoaded', async function() {
         fillStudentDetails();
         fillPickupSlots();
         loadOrderSummary();
+        showMonthlyBill();
     }
 });
+
+// Monthly bill: offer it if the cafeteria and this account allow it, show how much
+// of the limit is left, and warn straight away if an overdue bill blocks ordering
+let account = null;
+
+async function showMonthlyBill() {
+    let data;
+    try {
+        data = await getMyAccount();
+    } catch (error) {
+        return;     // the server still checks everything when the order is placed
+    }
+    account = data.account;
+    if (account.overdue > 0) {
+        document.getElementById('billAlertText').innerHTML = `<strong>${formatPrice(account.overdue)} of your monthly bill is overdue.</strong><br>
+            Pay it before placing a new order. <a href="profile.html#bill">Pay your bill</a>`;
+        document.getElementById('billAlert').classList.add('show');
+        document.getElementById('placeOrderBtn').disabled = true;
+    }
+    const option = document.getElementById('accountOption');
+    const text = document.getElementById('accountOptionText');
+    option.hidden = false;
+    if (!data.settings.accounts_open || !account.account_enabled) {
+        option.classList.add('is-disabled');
+        option.setAttribute('aria-disabled', 'true');
+        text.textContent = data.settings.accounts_open
+            ? 'Not available on your account - ask the cafeteria manager'
+            : 'Not available right now';
+        return;
+    }
+    text.textContent = `${formatPrice(Math.max(account.monthly_limit - account.spent_this_month, 0))} left of your ${formatPrice(account.monthly_limit)} limit this month · due by ${formatDate(account.current_due_date)}`;
+}
 
 // Pre-fill the form with the logged-in student's details
 function fillStudentDetails() {
@@ -82,6 +115,7 @@ function loadOrderSummary() {
 
 // Select payment method
 function selectPayment(method) {
+    if (event.target.closest('.payment-option').classList.contains('is-disabled')) return;
     selectedPayment = method;
     
     // Update UI
@@ -94,7 +128,7 @@ function selectPayment(method) {
     document.querySelector(`input[value="${method}"]`).checked = true;
 
     // Wallet payments need the transaction ID
-    const isWallet = method !== 'Cash';
+    const isWallet = isWalletPayment(method);
     document.getElementById('transactionGroup').hidden = !isWallet;
     document.getElementById('transactionRef').required = isWallet;
     if (isWallet) {
@@ -112,7 +146,7 @@ async function placeOrder() {
     }
 
     let transactionReference = null;
-    if (selectedPayment !== 'Cash') {
+    if (isWalletPayment(selectedPayment)) {
         transactionReference = document.getElementById('transactionRef').value.trim();
         if (transactionReference.length < 6) {
             showToast(`Enter the transaction ID from your ${selectedPayment} payment`, 'error');

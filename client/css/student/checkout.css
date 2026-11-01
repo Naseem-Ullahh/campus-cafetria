@@ -390,6 +390,20 @@
             display: flex;
         }
 
+        .alert a {
+            color: var(--dark);
+            font-weight: 600;
+        }
+
+        .payment-option[hidden] {
+            display: none;
+        }
+
+        .payment-option.is-disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
         .alert-warning {
             background: var(--amber-tint);
             color: var(--amber-text);

@@ -152,7 +152,7 @@ def test_order_errors_come_from_the_database(ali):
     too_soon = ali.post('/api/orders', json={'items': [{'item_id': juice, 'quantity': 1}],
                                              'pickup_time': in_minutes(5), 'payment_method': 'Cash'}).json['error']
     assert 'at least 15 minutes' in too_soon or '8 AM to 10 PM' in too_soon
-    assert 'Cash, Easypaisa or JazzCash' in place(ali, [{'item_id': juice, 'quantity': 1}], method='Card').json['error']
+    assert 'Payment method must be' in place(ali, [{'item_id': juice, 'quantity': 1}], method='Card').json['error']
     assert place(ali, []).json['error'] == 'Your cart is empty'
 
 

@@ -75,6 +75,9 @@
             </div>
         </div>
 
+        <!-- Monthly bill reminder (overdue / due soon) -->
+        <div class="bill-banner" id="billBanner" role="status" hidden></div>
+
         <!-- Statistics Cards -->
         <div class="stats-row">
             <div class="stat-card">
@@ -120,6 +123,9 @@
             <button class="tab-btn active" onclick="switchTab('orders')">
                 <i class="fas fa-receipt"></i> Order History
             </button>
+            <button class="tab-btn" onclick="switchTab('bill')">
+                <i class="fas fa-file-invoice"></i> Amount Payable
+            </button>
             <button class="tab-btn" onclick="switchTab('edit')">
                 <i class="fas fa-user-edit"></i> Edit Profile
             </button>
@@ -137,6 +143,48 @@
                 <div id="orderHistoryContainer">
                     <!-- Orders will be loaded here -->
                 </div>
+            </div>
+        </div>
+
+        <!-- Amount Payable Tab: the monthly bill -->
+        <div id="billTab" class="tab-content">
+            <div class="content-card">
+                <h3><i class="fas fa-file-invoice"></i> Amount Payable</h3>
+                <div id="billSummary"><p class="text-muted">Loading your bill...</p></div>
+            </div>
+
+            <div class="content-card" id="payBillCard" hidden>
+                <h3><i class="fas fa-mobile-alt"></i> Pay online</h3>
+                <form class="edit-form" id="payBillForm" onsubmit="payBill(event)">
+                    <p class="bill-hint">Send the money to the cafeteria's Easypaisa or JazzCash account first, then enter the details here.
+                        The cashier checks the payment and it then comes off your bill. You can also pay cash at the counter.</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="billAmount">Amount paid (Rs.)</label>
+                            <input type="number" id="billAmount" min="1" step="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="billMethod">Paid with</label>
+                            <select id="billMethod" required>
+                                <option value="Easypaisa">Easypaisa</option>
+                                <option value="JazzCash">JazzCash</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="billReference">Transaction ID</label>
+                        <input type="text" id="billReference" maxlength="50" autocomplete="off" placeholder="From your payment confirmation SMS" required>
+                    </div>
+                    <p class="form-error" id="billError" role="alert"></p>
+                    <button type="submit" class="btn-primary" id="payBillBtn">
+                        <i class="fas fa-paper-plane"></i> Submit payment
+                    </button>
+                </form>
+            </div>
+
+            <div class="content-card">
+                <h3><i class="fas fa-list-ul"></i> Statement</h3>
+                <div id="billStatement"></div>
             </div>
         </div>
 

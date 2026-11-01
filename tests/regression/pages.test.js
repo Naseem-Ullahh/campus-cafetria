@@ -11,8 +11,10 @@ const PAGES = {
     customer: ['pages/student/home.html', 'pages/student/cart.html', 'pages/student/checkout.html', 'pages/student/profile.html',
                'pages/student/order-status.html?order=ORDER', 'pages/student/receipt.html?order=ORDER'],
     admin: ['pages/admin/dashboard.html', 'pages/admin/incoming.html', 'pages/admin/kitchen.html', 'pages/admin/counter.html',
-            'pages/admin/orders-management.html', 'pages/admin/menu-management.html', 'pages/admin/reports.html'],
-    cashier: ['pages/admin/incoming.html', 'pages/admin/kitchen.html', 'pages/admin/counter.html', 'pages/admin/orders-management.html'],
+            'pages/admin/orders-management.html', 'pages/admin/menu-management.html', 'pages/admin/reports.html',
+            'pages/admin/receivables.html'],
+    cashier: ['pages/admin/incoming.html', 'pages/admin/kitchen.html', 'pages/admin/counter.html', 'pages/admin/orders-management.html',
+              'pages/admin/receivables.html'],
     kitchen: ['pages/admin/kitchen.html']
 };
 const LOGINS = { customer: ['STU001', 'student123', false], admin: ['EMP-0001', 'Admin@123', true], cashier: ['EMP-0002', 'Cashier@123', true], kitchen: ['EMP-0003', 'Kitchen@123', true] };

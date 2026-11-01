@@ -265,3 +265,12 @@ body.board-page {
     .board-nav a { white-space: nowrap; }
     .board-head h1 { font-size: 26px; }
 }
+
+/* Incoming board: online bill payments waiting to be checked */
+.bill-notice {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    margin: -6px 0 20px; padding: 10px 14px; max-width: 760px;
+    background: var(--amber-tint); border-left: 4px solid var(--amber); color: var(--amber-text); font-weight: 600;
+}
+.bill-notice[hidden] { display: none; }
+.bill-notice a { color: var(--dark); }

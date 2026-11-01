@@ -16,6 +16,23 @@ const NEXT_ACTIONS = {
     Ready: [{ action: 'complete', label: 'Take payment & hand over', icon: 'fa-hand-holding', style: 'btn-primary' }]
 };
 
+// No Show: the order went on the customer's monthly bill. Staff can correct it if
+// the customer did collect it, or verify a wallet payment that wasn't checked in time.
+function actionsFor(order) {
+    if (order.status !== 'No Show') return NEXT_ACTIONS[order.status] || [];
+    const actions = [{ action: 'collected', label: 'Was collected', icon: 'fa-hand-holding', style: 'btn-outline-primary',
+                       confirm: `Mark ${order.number} as collected? Only do this if the customer took the food${order.paymentMethod === 'Account' ? '' : ' and paid'} - it comes off their monthly bill.` }];
+    if (order.paymentStatus === 'Billed' && isWalletPayment(order.paymentMethod)) {
+        actions.unshift({ action: 'confirm-payment', label: `${order.paymentMethod} payment verified`, icon: 'fa-check', style: 'btn-primary',
+                          confirm: `Did you find ID ${order.transactionReference} for ${formatPrice(order.total)} in the ${order.paymentMethod} merchant app?` });
+    }
+    return actions;
+}
+
+function paymentText(order) {
+    return `${PAYMENT_LABELS[order.paymentMethod] || order.paymentMethod} · ${PAYMENT_STATUS_LABELS[order.paymentStatus] || order.paymentStatus}`;
+}
+
 $(document).ready(async function() {
     const user = await requireStaffLogin('admin', 'cashier');
     if (!user) return;
@@ -45,6 +62,7 @@ $(document).ready(async function() {
         showOrderDetails($(this).data('id'));
     });
     $(document).on('click', '.order-action', function() {
+        if (this.dataset.confirm && !confirm(this.dataset.confirm)) return;
         runAction($(this).data('action'), $(this).data('reason') === true);
     });
 });
@@ -88,7 +106,7 @@ async function renderTable() {
             <td><strong>${order.number}</strong></td>
             <td>${escapeHtml(order.fullName)}<br><small class="text-muted">${escapeHtml(order.studentId)}</small></td>
             <td>${escapeHtml(order.itemsText)}</td>
-            <td>${formatPrice(order.total)}<br><small class="text-muted">${order.paymentMethod} · ${order.paymentStatus}</small></td>
+            <td>${formatPrice(order.total)}<br><small class="text-muted">${paymentText(order)}</small></td>
             <td>${getStatusBadge(order.status)}</td>
             <td>${formatWhen(order.timestamp)}<br><small class="text-muted">Pickup ${order.pickupTime}</small></td>
             <td>
@@ -119,7 +137,7 @@ async function showOrderDetails(orderId) {
             <div class="col-md-6">
                 <p class="mb-1"><strong>Customer:</strong> ${escapeHtml(order.fullName)} (${escapeHtml(order.studentId)})</p>
                 <p class="mb-1"><strong>Phone:</strong> ${escapeHtml(order.phoneNumber || '-')}</p>
-                <p class="mb-1"><strong>Payment:</strong> ${order.paymentMethod}${order.transactionReference ? ` (ID ${escapeHtml(order.transactionReference)})` : ''} - ${order.paymentStatus}</p>
+                <p class="mb-1"><strong>Payment:</strong> ${paymentText(order)}${order.transactionReference ? ` (ID ${escapeHtml(order.transactionReference)})` : ''}</p>
             </div>
             <div class="col-md-6">
                 <p class="mb-1"><strong>Placed:</strong> ${formatWhen(order.timestamp)}</p>
@@ -138,12 +156,14 @@ async function showOrderDetails(orderId) {
         <ul class="small mb-0">${history}</ul>
     `);
 
-    const actions = NEXT_ACTIONS[order.status] || [];
-    const confirmWallet = order.status === 'Ready' && order.paymentStatus === 'Pending' && order.paymentMethod !== 'Cash';
+    const actions = actionsFor(order);
+    const confirmWallet = order.status === 'Ready' && order.paymentStatus === 'Pending' && isWalletPayment(order.paymentMethod);
     $('#orderActions').html(actions.length ? `
         ${confirmWallet ? `<p class="small text-muted mb-2">Check the ${order.paymentMethod} merchant app for ID ${escapeHtml(order.transactionReference)} before handing over.</p>` : ''}
+        ${order.status === 'No Show' ? `<p class="small text-muted mb-2">${formatPrice(order.total)} ${order.paymentStatus === 'Billed' ? 'is on the customer\'s monthly bill.' : 'is paid.'}
+            Customer did collect it? Use <em>Was collected</em>.</p>` : ''}
         <div class="d-flex flex-wrap gap-2">
-            ${actions.map(a => `<button class="btn ${a.style} order-action" data-action="${a.action}" data-reason="${!!a.needsReason}">
+            ${actions.map(a => `<button class="btn ${a.style} order-action" data-action="${a.action}" data-reason="${!!a.needsReason}" data-confirm="${escapeHtml(a.confirm || '')}">
                 <i class="fas ${a.icon}"></i> ${a.label}</button>`).join('')}
         </div>` : '');
     $('#orderDetailsModal').modal('show');

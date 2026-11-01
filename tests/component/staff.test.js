@@ -1,7 +1,7 @@
 // Component tests: staff pages, each in isolation with a faked API.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { setup, me, MENU, order, at } = require('./harness');
+const { setup, me, MENU, order, at, account } = require('./harness');
 
 let h;
 test.before(async () => { h = await setup(); });
@@ -70,7 +70,7 @@ test('incoming: card details, countdown, nav for a cashier', async () => {
     assert.match(await text(page, '.countdown'), /^\d:\d\d left to accept$/);
     assert.match(await text(page, '.card-pay'), /JC998877/);
     assert.ok((await page.$eval('.card-note', e => e.innerHTML)).includes('&lt;i&gt;'), 'instructions escaped');
-    assert.deepEqual(await page.$$eval('#boardNav a', a => a.map(x => x.textContent.trim())), ['Incoming', 'Kitchen', 'Counter', 'All orders']);
+    assert.deepEqual(await page.$$eval('#boardNav a', a => a.map(x => x.textContent.trim())), ['Incoming', 'Kitchen', 'Counter', 'All orders', 'Receivable']);
     assert.equal(await page.title(), "(1) Incoming orders - Signals Std. Cafe'");
     assert.deepEqual(errors, []);
 });
@@ -405,4 +405,155 @@ test('reports: start after end is refused before asking the server', async () =>
     await page.evaluate(() => applyDateFilter());
     assert.equal(calls.length, before);
     assert.ok(await page.evaluate(() => document.body.textContent.includes('Start date must be before end date')));
+});
+
+// ---------- monthly bill on the staff screens ----------
+test('counter: a monthly-bill order has nothing to collect and is handed over onto the bill', async () => {
+    const { page, calls } = await h.open('pages/admin/counter.html', {
+        'GET /auth/me': me('cashier'),
+        'GET /staff/counter': [200, { orders: [counterRow({ payment_method: 'Account' })] }],
+        'POST /staff/orders/7/complete': [200, { order: {} }]
+    });
+    await page.waitForSelector('[data-order="7"]');
+    assert.match(await text(page, '.card-pay'), /Monthly bill - nothing to collect, Rs\. 290 is added to their bill/);
+    assert.equal(await text(page, '.card-actions button'), 'Hand over - add to bill');
+    await page.click('.card-actions button');
+    await page.waitForFunction(() => document.querySelector('.board-toast'));
+    assert.ok(calls.some(c => c.key === 'POST /staff/orders/7/complete'));
+});
+
+test('incoming: online bill payments to check are flagged with a link', async () => {
+    const { page } = await h.open('pages/admin/incoming.html', {
+        'GET /auth/me': me('cashier'), 'GET /staff/incoming': [200, { orders: [incomingRow({ payment_method: 'Account' })], bill_payments_to_verify: 2 }]
+    });
+    await page.waitForSelector('#billNotice:not([hidden])');
+    assert.match(await text(page, '#billNotice'), /2 online bill payments to check/);
+    assert.equal(await page.$eval('#billNotice a', a => a.getAttribute('href')), 'receivables.html?show=verify');
+    assert.match(await text(page, '.card-pay'), /Monthly bill/);
+    assert.doesNotMatch(await text(page, '.card-pay'), /verify at pickup/);
+});
+
+for (const [label, overrides, expected] of [
+    ['cash No Show', { payment_method: 'Cash', payment_status: 'Billed' }, ['Was collected']],
+    ['wallet No Show', { payment_method: 'JazzCash', payment_status: 'Billed', transaction_reference: 'JC77' }, ['JazzCash payment verified', 'Was collected']],
+    ['paid No Show', { payment_method: 'JazzCash', payment_status: 'Confirmed', transaction_reference: 'JC77' }, ['Was collected']]
+]) {
+    test(`orders: ${label} offers ${expected.join(' + ')}`, async () => {
+        const o = order({ status: 'No Show', ...overrides });
+        const { page, calls } = await h.open('pages/admin/orders-management.html', {
+            'GET /auth/me': me('cashier'), 'GET /staff/orders': [200, { orders: [{ ...o, items: 'x' }] }],
+            'GET /orders/7': [200, { order: o }], 'POST /staff/orders/7/collected': [200, { order: {} }]
+        });
+        await page.waitForSelector('.view-btn');
+        await page.click('.view-btn');
+        await page.waitForSelector('#orderDetailsModal.show');
+        assert.deepEqual(await page.$$eval('#orderActions .order-action', b => b.map(x => x.textContent.trim())), expected);
+        page.dialogAnswer = false;                                   // "Are you sure?" -> Cancel
+        await page.click('#orderActions .order-action:last-child');
+        await wait(300);
+        assert.equal(calls.filter(c => c.key === 'POST /staff/orders/7/collected').length, 0, 'nothing sent when cancelled');
+        page.dialogAnswer = true;
+        await page.click('#orderActions .order-action:last-child');
+        await page.waitForFunction(() => !document.querySelector('#orderDetailsModal.show'));
+        assert.equal(calls.filter(c => c.key === 'POST /staff/orders/7/collected').length, 1);
+    });
+}
+
+const accountRow = (o = {}) => account(o)[1].account;
+const receivable = (accounts, pending = [], totals = {}) => [200, {
+    accounts, pending, settings: { accounts_open: 1, due_day: 10, default_monthly_limit: 15000 },
+    totals: { outstanding: 0, overdue: 0, customers_owing: 0, customers_blocked: 0, to_verify: pending.length, collected_this_month: 0, ...totals }
+}];
+const PENDING = [{ account_payment_id: 5, user_id: 10, amount: 500, method: 'JazzCash', transaction_reference: 'JC5555555', created_at: at(-30), full_name: 'Naseem Ullah', university_id: 'STU2026', balance: 1240 }];
+
+test('receivable: totals, overdue rows, filters and search', async () => {
+    const { page, calls } = await h.open('pages/admin/receivables.html', {
+        'GET /auth/me': me('cashier'),
+        'GET /staff/accounts': receivable([accountRow({ balance: 1240, overdue: 1000, spent_this_month: 240, pending_payment_count: 1, full_name: '<b>Naseem</b>' })],
+                                          PENDING, { outstanding: 1240, overdue: 1000, customers_owing: 1, customers_blocked: 1, collected_this_month: 3000 })
+    });
+    await page.waitForSelector('.accounts-table tbody tr');
+    assert.equal(await text(page, '#totalOutstanding'), 'Rs. 1,240');
+    assert.equal(await text(page, '#totalBlocked'), "1 customer can't order");
+    assert.equal(await text(page, '#totalCollected'), 'Rs. 3,000');
+    assert.equal(await page.$eval('tbody tr', r => r.classList.contains('is-overdue')), true);
+    assert.ok((await page.$eval('tbody', e => e.innerHTML)).includes('&lt;b&gt;Naseem'), 'names escaped');
+    assert.match(await text(page, 'tbody'), /Payment to check/);
+    assert.equal(await page.$eval('#settingsPanel', e => e.hidden), true, 'cashier sees no billing settings');
+    await page.click('.segmented button[data-show="overdue"]');
+    await page.type('#search', 'STU20');
+    await wait(500);
+    assert.ok(calls.some(c => c.path === '/staff/accounts?show=overdue&q=STU20'));
+});
+
+test('receivable: online payment confirm and reject (with a reason)', async () => {
+    const { page, calls } = await h.open('pages/admin/receivables.html', {
+        'GET /auth/me': me('cashier'), 'GET /staff/accounts': receivable([], PENDING),
+        'POST /staff/account-payments/5/confirm': [200, { ok: true }], 'POST /staff/account-payments/5/reject': [200, { ok: true }]
+    });
+    await page.waitForSelector('#pendingPanel:not([hidden]) .pending-card');
+    assert.match(await text(page, '.pending-card'), /Rs\. 500 by JazzCash · ID JC5555555/);
+    await page.click('.pending-card .btn-act.primary');
+    await page.waitForFunction(() => document.querySelector('.board-toast'));
+    assert.ok(calls.some(c => c.key === 'POST /staff/account-payments/5/confirm'));
+    page.promptAnswer = 'Wrong amount';
+    await page.click('.pending-card .danger-outline');
+    await wait(300);
+    assert.deepEqual(calls.find(c => c.key === 'POST /staff/account-payments/5/reject').body, { reason: 'Wrong amount' });
+});
+
+test('receivable: cashier records a cash payment from the customer dialog (no waiver option)', async () => {
+    const detail = [200, { account: accountRow({ balance: 1240 }), entries: [] }];
+    const { page, calls } = await h.open('pages/admin/receivables.html', {
+        'GET /auth/me': me('cashier'), 'GET /staff/accounts': receivable([accountRow({ balance: 1240 })]),
+        'GET /staff/accounts/10': detail,
+        'POST /staff/accounts/10/payments': call => [201, { account: accountRow({ balance: 1240 - call.body.amount }), entries: [] }]
+    });
+    await page.waitForSelector('.accounts-table tbody button');
+    await page.click('.accounts-table tbody button');
+    await page.waitForSelector('#accountDialog[open]');
+    assert.equal(await page.$eval('#payAmount', e => e.value), '1240');
+    assert.deepEqual(await page.$$eval('#payMethod option', o => o.map(x => x.value)), ['Cash', 'Easypaisa', 'JazzCash']);
+    assert.equal(await page.$eval('#limitForm', e => e.hidden), true, 'cashier cannot change limits');
+    await page.$eval('#payAmount', e => { e.value = '1000'; });
+    await page.click('#paymentBtn');
+    await page.waitForFunction(() => document.querySelector('#dialogSummary').textContent.includes('Rs. 240'));
+    assert.deepEqual(calls.find(c => c.key === 'POST /staff/accounts/10/payments').body, { amount: 1000, method: 'Cash', transaction_reference: null, note: null });
+    await page.select('#payMethod', 'JazzCash');
+    assert.equal(await page.$eval('#payReferenceRow', e => e.hidden), false, 'wallet needs the transaction ID');
+    assert.equal(await page.$eval('#payReference', e => e.required), true);
+});
+
+test('receivable: manager waives with a reason, sets a limit and changes billing settings', async () => {
+    const { page, calls } = await h.open('pages/admin/receivables.html', {
+        'GET /auth/me': me('admin'), 'GET /staff/accounts': receivable([accountRow({ balance: 300 })]),
+        'GET /staff/accounts/10': [200, { account: accountRow({ balance: 300 }), entries: [] }],
+        'POST /staff/accounts/10/payments': [201, { account: accountRow(), entries: [] }],
+        'PUT /staff/accounts/10': call => [200, { account: accountRow({ monthly_limit: call.body.monthly_limit, uses_default_limit: 0, account_enabled: call.body.account_enabled }), entries: [] }],
+        'PUT /admin/billing-settings': call => [200, { settings: call.body }]
+    });
+    await page.waitForSelector('#settingsPanel:not([hidden])');
+    await page.click('.accounts-table tbody button');
+    await page.waitForSelector('#accountDialog[open]');
+    await page.select('#payMethod', 'Waiver');
+    assert.equal(await page.$eval('#payNote', e => e.required), true, 'waiver needs a reason');
+    assert.match(await text(page, '#paymentBtn'), /Waive amount/);
+    await page.type('#payNote', 'Kitchen mistake');
+    await page.click('#paymentBtn');
+    await page.waitForFunction(() => document.querySelector('#paymentForm').hidden);
+    assert.deepEqual(calls.find(c => c.key === 'POST /staff/accounts/10/payments').body, { amount: 300, method: 'Waiver', transaction_reference: null, note: 'Kitchen mistake' });
+
+    await page.$eval('#customerLimit', e => { e.value = '5000'; });
+    await page.click('#accountEnabled');
+    await page.click('#limitForm button[type="submit"]');
+    await wait(300);
+    assert.deepEqual(calls.find(c => c.key === 'PUT /staff/accounts/10').body, { account_enabled: false, monthly_limit: 5000 });
+    await page.click('.dialog-close');
+
+    await page.click('#settingsPanel summary');
+    await page.$eval('#dueDay', e => { e.value = '5'; });
+    await page.$eval('#defaultLimit', e => { e.value = '8000'; });
+    await page.click('#settingsForm button[type="submit"]');
+    await page.waitForFunction(() => document.getElementById('dueDayText').textContent === '5th');
+    assert.deepEqual(calls.find(c => c.key === 'PUT /admin/billing-settings').body, { accounts_open: true, due_day: 5, default_monthly_limit: 8000 });
 });

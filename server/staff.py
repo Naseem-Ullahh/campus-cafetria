@@ -24,7 +24,8 @@ KITCHEN = ('kitchen', 'admin')
 @login_required(*MANAGERS)
 def incoming():
     process_overdue_orders()
-    return jsonify(orders=query('SELECT * FROM Incoming_Orders'))
+    bill_payments = query("SELECT COUNT(*) AS n FROM Account_Payments WHERE status = 'Pending'")[0]['n']
+    return jsonify(orders=query('SELECT * FROM Incoming_Orders'), bill_payments_to_verify=bill_payments)
 
 
 @bp.get('/kitchen')
@@ -115,4 +116,12 @@ def confirm_payment(order_id):
 @login_required(*MANAGERS)
 def complete(order_id):
     call('CompletePickup', order_id, g.user['user_id'])
+    return _done(order_id)
+
+
+@bp.post('/orders/<int:order_id>/collected')
+@login_required(*MANAGERS)
+def collected(order_id):
+    """A No Show the customer did collect - the pickup just wasn't recorded."""
+    call('MarkCollected', order_id, g.user['user_id'])
     return _done(order_id)

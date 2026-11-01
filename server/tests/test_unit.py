@@ -194,7 +194,7 @@ SELECT 3;
 def test_real_sql_files_split_cleanly():
     counts = {name: len(list(init_db.statements((config.DATABASE_DIR / name).read_text()))) for name in init_db.FILES}
     assert counts['02_triggers.sql'] == 8           # USE + 7 triggers
-    assert counts['03_procedures.sql'] == 12        # USE + 11 procedures
+    assert counts['03_procedures.sql'] == 18        # USE + 17 procedures
     for name, count in counts.items():
         assert count > 0, name
 

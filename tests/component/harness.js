@@ -109,4 +109,23 @@ function order(overrides = {}) {
     };
 }
 
-module.exports = { setup, USERS, me, MENU, order, at };
+// A customer's monthly bill as GET /account returns it
+const today = new Date();
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function account(overrides = {}, entries = [], settings = {}) {
+    return [200, {
+        account: {
+            user_id: 10, university_id: 'STU2026', full_name: 'Naseem Ullah', email: 'naseem@university.edu', phone: '03001234567',
+            user_type: 'student', is_active: 1, account_enabled: 1, monthly_limit: 15000, uses_default_limit: 1,
+            total_charged: 0, charged_this_month: 0, spent_this_month: 0, total_paid: 0, total_waived: 0,
+            pending_payments: 0, pending_payment_count: 0, balance: 0, previous_unpaid: 0, overdue: 0,
+            previous_due_date: ymd(new Date(today.getFullYear(), today.getMonth(), 10)),
+            current_due_date: ymd(new Date(today.getFullYear(), today.getMonth() + 1, 10)),
+            last_charge_at: null, last_payment_at: null, ...overrides
+        },
+        entries,
+        settings: { accounts_open: 1, due_day: 10, default_monthly_limit: 15000, ...settings }
+    }];
+}
+
+module.exports = { setup, USERS, me, MENU, order, at, account };

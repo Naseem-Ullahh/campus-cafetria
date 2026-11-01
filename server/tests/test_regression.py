@@ -213,7 +213,7 @@ def test_unaccepted_order_is_auto_rejected_and_stock_returns(app, staff):
     assert item('Classic Burger')['stock_quantity'] == burger['stock_quantity']
 
 
-def test_no_show_blocks_new_orders_until_paid(app, staff):
+def test_no_show_goes_on_the_bill_and_blocks_only_once_overdue(app, staff):
     customer = register(app, 'TIMENS')
     coffee = item('Coffee')['item_id']
     order_id = place(customer, [{'item_id': coffee, 'quantity': 2}]).json['order']['order_id']
@@ -225,9 +225,16 @@ def test_no_show_blocks_new_orders_until_paid(app, staff):
     assert order_id not in [o['order_id'] for o in staff['cashier'].get('/api/staff/counter').json['orders']]
     assert customer.get(f'/api/orders/{order_id}').json['order']['status'] == 'No Show'
     assert item('Coffee')['stock_quantity'] == stock_ready, 'food was made: stock not restored'
+    bill = customer.get('/api/account').json['account']
+    assert bill['balance'] == 100 and bill['overdue'] == 0, 'on this month\'s bill, not due yet'
+    assert place(customer, [{'item_id': coffee, 'quantity': 1}]).status_code == 201, 'can still order before the due date'
+    sql('UPDATE Orders SET order_date = order_date - INTERVAL 2 MONTH WHERE order_id = %s', (order_id,))
     blocked = place(customer, [{'item_id': coffee, 'quantity': 1}])
-    assert blocked.status_code == 400 and 'unpaid' in blocked.json['error']
-    staff['cashier'].post(f'/api/staff/orders/{order_id}/confirm-payment', json={})
+    assert blocked.status_code == 400 and 'Rs. 100 of your monthly bill is overdue' in blocked.json['error']
+    refused = staff['cashier'].post(f'/api/staff/orders/{order_id}/confirm-payment', json={})
+    assert refused.status_code == 400, 'a cash No Show is paid through the bill, not per order'
+    user_id = sql("SELECT user_id FROM Users WHERE university_id = 'TIMENS'")[0]['user_id']
+    assert staff['cashier'].post(f'/api/staff/accounts/{user_id}/payments', json={'amount': 100, 'method': 'Cash'}).status_code == 201
     assert place(customer, [{'item_id': coffee, 'quantity': 1}]).status_code == 201
 
 
@@ -402,7 +409,7 @@ def test_menu_price_change_does_not_alter_old_orders(app, staff):
 LEGAL = {
     ('Received', 'Accepted'), ('Received', 'Rejected'), ('Received', 'Cancelled'),
     ('Accepted', 'Preparing'), ('Accepted', 'Cancelled'), ('Preparing', 'Ready'),
-    ('Ready', 'Completed'), ('Ready', 'No Show'),
+    ('Ready', 'Completed'), ('Ready', 'No Show'), ('No Show', 'Completed'),
 }
 
 
@@ -417,11 +424,15 @@ def test_random_simulation_keeps_every_invariant(app, staff):
     for n in range(80):
         customer = rng.choice(customers)
         lines = [{'item_id': rng.choice(menu_ids), 'quantity': rng.randint(1, 3)} for _ in range(rng.randint(1, 3))]
-        method = rng.choice(['Cash', 'Easypaisa', 'JazzCash'])
-        response = place(customer, lines, method=method, reference=f'TX{n:06d}' if method != 'Cash' else None)
-        if response.status_code != 201:
-            assert 'unpaid' in response.json['error'], response.json   # only expected refusal: dues from a No Show
-            continue
+        method = rng.choice(['Cash', 'Easypaisa', 'JazzCash', 'Account'])
+        wallet = method in ('Easypaisa', 'JazzCash')
+        response = place(customer, lines, method=method, reference=f'TX{n:06d}' if wallet else None)
+        assert response.status_code == 201, response.json      # nothing is overdue and no limit is near
+        if rng.random() < 0.2:                                   # someone pays part of their bill
+            user_id = customer.get('/api/auth/me').json['user']['user_id']
+            owed = customer.get('/api/account').json['account']['balance']
+            if owed > 0:
+                staff['cashier'].post(f'/api/staff/accounts/{user_id}/payments', json={'amount': rng.randint(1, int(owed)), 'method': 'Cash'})
         order_id = response.json['order']['order_id']
         order_ids.append(order_id)
 
@@ -433,7 +444,7 @@ def test_random_simulation_keeps_every_invariant(app, staff):
         if roll < 0.25:
             staff['cashier'].post(f'/api/staff/orders/{order_id}/reject', json={'reason': 'Simulated'})
             continue
-        if method != 'Cash' and rng.random() < 0.5:
+        if wallet and rng.random() < 0.5:
             staff['cashier'].post(f'/api/staff/orders/{order_id}/confirm-payment', json={})
         staff[rng.choice(['cashier', 'admin'])].post(f'/api/staff/orders/{order_id}/accept', json={})
         if rng.random() < 0.1:
@@ -453,11 +464,13 @@ def test_random_simulation_keeps_every_invariant(app, staff):
             overdue_now()
             staff['cashier'].get('/api/staff/counter')          # triggers the No Show sweep
             customer.post(f'/api/staff/orders/{order_id}/complete', json={})   # customer can't: ignored (403)
-            staff['cashier'].post(f'/api/staff/orders/{order_id}/confirm-payment', json={})   # dues paid
+            staff['cashier'].post(f'/api/staff/orders/{order_id}/confirm-payment', json={})   # wallet checked late (cash/bill: refused)
+            if rng.random() < 0.3:
+                staff['cashier'].post(f'/api/staff/orders/{order_id}/collected', json={})     # they did collect it
 
     assert len(order_ids) >= 70
-    rows = sql('SELECT o.order_id, o.status, o.total_amount, o.accepted_at, o.preparing_at, o.ready_at, o.picked_up_at, '
-               '       o.closed_at, p.payment_status, p.amount FROM Orders o JOIN Payments p ON p.order_id = o.order_id '
+    rows = sql('SELECT o.order_id, o.user_id, o.status, o.total_amount, o.accepted_at, o.preparing_at, o.ready_at, o.picked_up_at, '
+               '       o.closed_at, p.payment_status, p.payment_method, p.amount FROM Orders o JOIN Payments p ON p.order_id = o.order_id '
                'WHERE o.order_id IN %s', (order_ids,))
     lines = sql('SELECT order_id, item_id, quantity, unit_price FROM Order_Details WHERE order_id IN %s', (order_ids,))
     history = sql('SELECT order_id, old_status, new_status FROM Order_Status_History WHERE order_id IN %s ORDER BY history_id', (order_ids,))
@@ -477,11 +490,15 @@ def test_random_simulation_keeps_every_invariant(app, staff):
     # (c) payment state fits the order state
     for r in rows:
         if r['status'] == 'Completed':
-            assert r['payment_status'] == 'Confirmed', r
+            assert r['payment_status'] == ('Billed' if r['payment_method'] == 'Account' else 'Confirmed'), r
         elif r['status'] in ('Cancelled', 'Rejected'):
             assert r['payment_status'] in ('Void', 'Refunded'), r
+        elif r['status'] == 'No Show':
+            assert r['payment_status'] in ('Billed', 'Confirmed'), r
+            assert r['payment_status'] == 'Billed' or r['payment_method'] in ('Easypaisa', 'JazzCash'), r
         else:
             assert r['payment_status'] in ('Pending', 'Confirmed'), r
+            assert r['payment_status'] == 'Pending' or r['payment_method'] in ('Easypaisa', 'JazzCash'), r
 
     # (d) history is a legal chain from Received to the current status
     for order_id in order_ids:
@@ -506,10 +523,225 @@ def test_random_simulation_keeps_every_invariant(app, staff):
     count = {r['status']: r['n'] for r in everything}
     assert len(staff['admin'].get('/api/staff/kitchen').json['orders']) == count.get('Accepted', 0) + count.get('Preparing', 0)
     assert len(staff['admin'].get('/api/staff/counter').json['orders']) == count.get('Ready', 0)
-    confirmed = sql("SELECT COALESCE(SUM(p.amount), 0) AS s FROM Payments p JOIN Orders o ON o.order_id = p.order_id "
-                    "WHERE p.payment_status = 'Confirmed' AND DATE(o.order_date) = CURDATE()")[0]['s']
-    assert staff['admin'].get('/api/admin/dashboard').json['today']['revenue'] == float(confirmed)
-    assert staff['admin'].get('/api/admin/reports').json['summary']['revenue'] == float(confirmed)
+    earned = sql("SELECT COALESCE(SUM(p.amount), 0) AS s FROM Payments p JOIN Orders o ON o.order_id = p.order_id "
+                 "WHERE p.payment_status IN ('Confirmed', 'Billed') AND DATE(o.order_date) = CURDATE()")[0]['s']
+    assert staff['admin'].get('/api/admin/dashboard').json['today']['revenue'] == float(earned)
+    assert staff['admin'].get('/api/admin/reports').json['summary']['revenue'] == float(earned)
+
+    # (g) every customer's bill = what was billed - what was paid, never negative, and
+    #     Amount payable (customer) agrees with Amount receivable (staff)
+    receivable = {a['user_id']: a for a in staff['admin'].get('/api/staff/accounts?show=all').json['accounts']}
+    for customer in customers:
+        bill = customer.get('/api/account').json['account']
+        billed = sum(float(r['amount']) for r in rows if r['user_id'] == bill['user_id'] and r['payment_status'] == 'Billed')
+        paid = float(sql("SELECT COALESCE(SUM(amount), 0) AS s FROM Account_Payments WHERE user_id = %s AND status = 'Confirmed'",
+                         (bill['user_id'],))[0]['s'])
+        assert bill['balance'] == round(billed - paid, 2) >= 0, bill
+        assert receivable[bill['user_id']]['balance'] == bill['balance']
+        assert bill['overdue'] == 0, 'everything is from this month'
+
+
+# ==================================================================
+# 5b. Monthly bill: limits, payments, the due date, corrections
+# ==================================================================
+
+def user_id_of(university_id):
+    return sql('SELECT user_id FROM Users WHERE university_id = %s', (university_id,))[0]['user_id']
+
+
+def billed_order(customer, staff, items, method='Account', reference=None):
+    """An order walked all the way to Completed (so a monthly-bill order is Billed)."""
+    order_id = place(customer, items, method=method, reference=reference).json['order']['order_id']
+    for path, who in (('accept', 'cashier'), ('start', 'chef'), ('ready', 'chef'), ('complete', 'cashier')):
+        assert staff[who].post(f'/api/staff/orders/{order_id}/{path}', json={}).status_code == 200
+    return order_id
+
+
+def test_two_bill_orders_at_once_cannot_pass_the_limit_together(app):
+    # One customer has one cart, so the second order mostly finds it emptied by the first;
+    # either way the bill must never go over the limit.
+    register(app, 'BILLRACE')
+    user_id = user_id_of('BILLRACE')
+    sql('UPDATE Users SET monthly_limit = 150 WHERE user_id = %s', (user_id,))
+    coffee = item('Coffee')['item_id']                               # Rs. 50: two of them fit, three don't
+    when = datetime.fromisoformat(pickup().replace('Z', '+00:00')).astimezone(PKT).replace(tzinfo=None)
+
+    def order_on_bill(i):
+        with connect() as connection, connection.cursor() as cursor:
+            cursor.execute('INSERT INTO Cart (user_id, item_id, quantity) VALUES (%s, %s, 2) '
+                           'ON DUPLICATE KEY UPDATE quantity = 2', (user_id, coffee))
+            cursor.execute("CALL PlaceOrder(%s, %s, 'Account', NULL, NULL, @id)", (user_id, when))
+            return 'placed'
+
+    results = run_parallel(2, order_on_bill)
+    spent = sql('SELECT spent_this_month FROM Account_Balances WHERE user_id = %s', (user_id,))[0]['spent_this_month']
+    assert spent <= 150, (spent, results)
+    assert [r[0] for r in results].count('ok') >= 1, results
+    assert all('limit' in r[1] or 'cart is empty' in r[1] for r in results if r[0] == 'error'), results
+
+
+def test_simultaneous_payments_never_overpay_a_bill(app, staff):
+    customer = register(app, 'BILLPAY')
+    billed_order(customer, staff, [{'item_id': item('Coffee')['item_id'], 'quantity': 2}])     # owes Rs. 100
+    user_id, cashier = user_id_of('BILLPAY'), user_id_of('EMP-0002')
+
+    def pay_all(i):
+        with connect() as connection, connection.cursor() as cursor:
+            cursor.execute("CALL RecordAccountPayment(%s, %s, 100, 'Cash', NULL, NULL, @id)", (user_id, cashier))
+            return 'paid'
+
+    results = run_parallel(5, pay_all)
+    assert [r[0] for r in results].count('ok') == 1, results
+    assert sql('SELECT balance FROM Account_Balances WHERE user_id = %s', (user_id,))[0]['balance'] == 0
+
+
+def test_confirming_one_online_payment_twice_at_once_counts_it_once(app, staff):
+    customer = register(app, 'BILLCONF')
+    billed_order(customer, staff, [{'item_id': item('Coffee')['item_id'], 'quantity': 4}])     # owes Rs. 200
+    assert customer.post('/api/account/payments', json={'amount': 150, 'method': 'Easypaisa', 'transaction_reference': 'EPRACE01'}).status_code == 201
+    payment_id = sql("SELECT account_payment_id FROM Account_Payments WHERE transaction_reference = 'EPRACE01'")[0]['account_payment_id']
+    staff_ids = [user_id_of('EMP-0001'), user_id_of('EMP-0002')]
+
+    def confirm(i):
+        with connect() as connection, connection.cursor() as cursor:
+            cursor.execute('CALL ConfirmAccountPayment(%s, %s)', (payment_id, staff_ids[i % 2]))
+            return 'confirmed'
+
+    results = run_parallel(6, confirm)
+    assert [r[0] for r in results].count('ok') == 1, results
+    assert customer.get('/api/account').json['account']['balance'] == 50
+
+
+def test_due_day_decides_when_last_months_bill_blocks(app, staff):
+    customer = register(app, 'BILLDUE')
+    order_id = billed_order(customer, staff, [{'item_id': item('Samosa')['item_id'], 'quantity': 2}])   # Rs. 60
+    sql('UPDATE Orders SET order_date = order_date - INTERVAL 1 MONTH WHERE order_id = %s', (order_id,))
+    today = datetime.now(PKT).day
+    try:
+        for due_day in (1, 10, 28):
+            assert staff['admin'].put('/api/admin/billing-settings', json={'accounts_open': True, 'due_day': due_day,
+                                                                          'default_monthly_limit': 15000}).status_code == 200
+            bill = customer.get('/api/account').json['account']
+            assert (bill['overdue'] == 60) == (today > due_day), (due_day, today, bill)
+            assert bill['previous_unpaid'] == 60 and bill['charged_this_month'] == 0
+            assert bill['previous_due_date'].endswith(f'-{due_day:02d}')
+            response = place(customer, [{'item_id': item('Coffee')['item_id'], 'quantity': 1}])
+            assert (response.status_code == 400) == (today > due_day), (due_day, response.json)
+            if response.status_code == 201:
+                customer.post(f"/api/orders/{response.json['order']['order_id']}/cancel", json={})
+    finally:
+        staff['admin'].put('/api/admin/billing-settings', json={'accounts_open': True, 'due_day': 10, 'default_monthly_limit': 15000})
+
+
+def test_billing_roles_and_privacy(app, staff):
+    customer = register(app, 'BILLSEC')
+    other = register(app, 'BILLOTHER')
+    billed_order(other, staff, [{'item_id': item('Coffee')['item_id'], 'quantity': 1}])
+    other_id = user_id_of('BILLOTHER')
+    # customers only ever see their own bill
+    assert customer.get('/api/account').json['account']['university_id'] == 'BILLSEC'
+    assert customer.get('/api/staff/accounts').status_code == 403
+    assert customer.get(f'/api/staff/accounts/{other_id}').status_code == 403
+    assert customer.post(f'/api/staff/accounts/{other_id}/payments', json={'amount': 50, 'method': 'Cash'}).status_code == 403
+    assert customer.post('/api/staff/account-payments/1/confirm', json={}).status_code == 403
+    # kitchen has nothing to do with money; the cashier can't change rules or waive
+    assert staff['chef'].get('/api/staff/accounts').status_code == 403
+    assert staff['cashier'].put('/api/admin/billing-settings', json={'accounts_open': False, 'due_day': 1, 'default_monthly_limit': 0}).status_code == 403
+    assert staff['cashier'].put(f'/api/staff/accounts/{other_id}', json={'account_enabled': True, 'monthly_limit': 999999}).status_code == 403
+    waive = staff['cashier'].post(f'/api/staff/accounts/{other_id}/payments', json={'amount': 50, 'method': 'Waiver', 'note': 'friend'})
+    assert waive.status_code == 400 and 'Only the manager' in waive.json['error']
+    # staff can't be billed and don't appear in the receivable list
+    assert staff['admin'].get(f"/api/staff/accounts/{user_id_of('EMP-0003')}").status_code == 404
+    assert all(a['university_id'] != 'EMP-0002' for a in staff['admin'].get('/api/staff/accounts?show=all').json['accounts'])
+    assert staff['admin'].get('/api/staff/accounts?show=all&q=%27%20OR%201%3D1%20--').json['accounts'] == [], 'search is not injectable'
+
+
+def test_bad_bill_payment_input_is_refused(app, staff):
+    customer = register(app, 'BILLBAD')
+    billed_order(customer, staff, [{'item_id': item('Coffee')['item_id'], 'quantity': 2}], method='Account')
+    used = place(customer, [{'item_id': item('Coffee')['item_id'], 'quantity': 1}], method='JazzCash', reference='JCUSED001')
+    assert used.status_code == 201
+    for body, expected in (
+        ({'amount': -5, 'method': 'JazzCash', 'transaction_reference': 'JCX00001'}, 'cannot be less than 0'),
+        ({'amount': 0, 'method': 'JazzCash', 'transaction_reference': 'JCX00001'}, 'greater than zero'),
+        ({'amount': 'lots', 'method': 'JazzCash', 'transaction_reference': 'JCX00001'}, 'must be a number'),
+        ({'amount': 10 ** 9, 'method': 'JazzCash', 'transaction_reference': 'JCX00001'}, 'too large'),
+        ({'amount': 50, 'method': 'Cash', 'transaction_reference': 'JCX00001'}, 'Easypaisa or JazzCash'),
+        ({'amount': 50, 'method': 'JazzCash', 'transaction_reference': '12'}, 'full transaction ID'),
+        ({'amount': 50, 'method': 'JazzCash'}, 'Transaction ID is required'),
+        ({'amount': 50, 'method': 'JazzCash', 'transaction_reference': 'JCUSED001'}, 'already been used'),
+        ({'amount': 101, 'method': 'JazzCash', 'transaction_reference': 'JCX00001'}, 'most you can pay is Rs. 100'),
+    ):
+        response = customer.post('/api/account/payments', json=body)
+        assert response.status_code == 400 and expected in response.json['error'], (body, response.json)
+    assert customer.get('/api/account').json['account']['pending_payments'] == 0, 'nothing half-saved'
+    bad = staff['admin'].put('/api/admin/billing-settings', json={'accounts_open': True, 'due_day': 31, 'default_monthly_limit': 100})
+    assert bad.status_code == 400 and 'between 1 and 28' in bad.json['error']
+
+
+def test_limit_and_switches_set_by_the_manager_apply_at_once(app, staff):
+    customer = register(app, 'BILLLIM')
+    user_id = user_id_of('BILLLIM')
+    coffee = [{'item_id': item('Coffee')['item_id'], 'quantity': 1}]
+    assert staff['admin'].put(f'/api/staff/accounts/{user_id}', json={'account_enabled': True, 'monthly_limit': 0}).status_code == 200
+    assert 'limit' in place(customer, coffee, method='Account').json['error']
+    assert place(customer, coffee, method='Cash').status_code == 201, 'cash is never limited'
+    staff['admin'].put(f'/api/staff/accounts/{user_id}', json={'account_enabled': False, 'monthly_limit': None})
+    assert 'not available on your account' in place(customer, coffee, method='Account').json['error']
+    staff['admin'].put(f'/api/staff/accounts/{user_id}', json={'account_enabled': True, 'monthly_limit': None})
+    assert customer.get('/api/account').json['account']['monthly_limit'] == 15000, 'empty limit = the default'
+    assert place(customer, coffee, method='Account').status_code == 201
+
+
+def test_no_show_corrections_and_late_wallet_checks(app, staff):
+    customer = register(app, 'BILLFIX')
+    coffee = item('Coffee')['item_id']
+
+    def no_show(method, reference=None):
+        order_id = place(customer, [{'item_id': coffee, 'quantity': 1}], method=method, reference=reference).json['order']['order_id']
+        for path, who in (('accept', 'cashier'), ('start', 'chef'), ('ready', 'chef')):
+            staff[who].post(f'/api/staff/orders/{order_id}/{path}', json={})
+        sql('UPDATE Orders SET requested_pickup_time = NOW() - INTERVAL 31 MINUTE WHERE order_id = %s', (order_id,))
+        overdue_now()
+        staff['cashier'].get('/api/staff/counter')
+        return order_id
+
+    wallet, cash, on_bill = no_show('JazzCash', 'JCLATE001'), no_show('Cash'), no_show('Account')
+    assert customer.get('/api/account').json['account']['balance'] == 150, 'all three uncollected orders are billed'
+    # the wallet payment is found in the merchant app after all: off the bill
+    assert staff['cashier'].post(f'/api/staff/orders/{wallet}/confirm-payment', json={}).status_code == 200
+    # the cash order was collected and paid, the cashier just forgot to press the button
+    assert customer.post(f'/api/staff/orders/{cash}/collected', json={}).status_code == 403
+    assert staff['chef'].post(f'/api/staff/orders/{cash}/collected', json={}).status_code == 403
+    fixed = staff['cashier'].post(f'/api/staff/orders/{cash}/collected', json={}).json['order']
+    assert fixed['status'] == 'Completed' and fixed['payment_status'] == 'Confirmed' and fixed['close_reason'] is None
+    assert fixed['history'][-1]['changed_by'] == 'Counter Cashier'
+    # a monthly-bill order that was collected stays on the bill
+    assert staff['cashier'].post(f'/api/staff/orders/{on_bill}/collected', json={}).json['order']['payment_status'] == 'Billed'
+    assert customer.get('/api/account').json['account']['balance'] == 50
+    again = staff['cashier'].post(f'/api/staff/orders/{cash}/collected', json={})
+    assert again.status_code == 400 and 'Only No Show' in again.json['error']
+
+
+def test_receivable_lists_and_reports_agree_with_the_bills(app, staff):
+    customer = register(app, 'BILLLIST')
+    order_id = billed_order(customer, staff, [{'item_id': item('Pancakes')['item_id'], 'quantity': 1}])    # Rs. 90
+    sql('UPDATE Orders SET order_date = order_date - INTERVAL 2 MONTH WHERE order_id = %s', (order_id,))
+    customer.post('/api/account/payments', json={'amount': 40, 'method': 'JazzCash', 'transaction_reference': 'JCLIST001'})
+    data = staff['cashier'].get('/api/staff/accounts?show=overdue').json
+    row = next(a for a in data['accounts'] if a['university_id'] == 'BILLLIST')
+    assert row['overdue'] == 90 and row['pending_payments'] == 40
+    assert any(a['university_id'] == 'BILLLIST' for a in staff['cashier'].get('/api/staff/accounts?show=verify').json['accounts'])
+    assert any(p['transaction_reference'] == 'JCLIST001' for p in data['pending'])
+    assert staff['cashier'].get('/api/staff/incoming').json['bill_payments_to_verify'] >= 1
+    everyone = staff['admin'].get('/api/staff/accounts?show=all').json['accounts']
+    assert data['totals']['outstanding'] == sum(max(a['balance'], 0) for a in everyone)
+    assert data['totals']['overdue'] == sum(a['overdue'] for a in everyone)
+    payment_id = data['pending'][-1]['account_payment_id']
+    rejected = staff['cashier'].post(f'/api/staff/account-payments/{payment_id}/reject', json={'reason': 'Not in the app'})
+    assert rejected.status_code == 200
+    entry = next(e for e in customer.get('/api/account').json['entries'] if e['kind'] == 'payment')
+    assert entry['status'] == 'Rejected' and entry['note'] == 'Not in the app'
 
 
 # ==================================================================

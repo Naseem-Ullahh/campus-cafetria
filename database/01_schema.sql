@@ -11,10 +11,11 @@ USE campus_cafeteria;
 
 -- ---------------------------------------------------------------------
 -- 1. USERS
--- Students, faculty and staff, identified by their university-issued ID.
+-- Students, GCs, army personnel, faculty and staff, identified by their
+-- university / service ID.
 -- user_type = who the person is at the university
 -- role      = what the person may do in this system:
---   customer  places orders (students, faculty, staff)
+--   customer  places orders (students, GCs, army personnel, faculty, staff)
 --   admin     the cafeteria manager: accepts/rejects orders, menu, reports (only one)
 --   cashier   counter staff: accepts/rejects orders, takes payment, hands food over
 --   kitchen   chef: starts preparing orders and marks them ready
@@ -25,10 +26,14 @@ CREATE TABLE Users (
     full_name       VARCHAR(100) NOT NULL,
     email           VARCHAR(120) NOT NULL UNIQUE,
     phone           VARCHAR(20),
-    user_type       ENUM('student', 'faculty', 'staff') NOT NULL,
+    user_type       ENUM('student', 'gc', 'army', 'faculty', 'staff') NOT NULL,
     role            ENUM('customer', 'admin', 'cashier', 'kitchen') NOT NULL DEFAULT 'customer',
     password_hash   VARCHAR(255) NOT NULL,                  -- hashed by the backend, never plain text
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Monthly bill (customers): may they buy now and pay at the end of the month,
+    -- and up to how much a month (NULL = the default in Billing_Settings)
+    account_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    monthly_limit   DECIMAL(10,2) NULL,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     -- Only ONE admin can exist: every non-admin gets NULL (UNIQUE allows many NULLs)
@@ -36,7 +41,8 @@ CREATE TABLE Users (
     UNIQUE KEY uq_single_admin (admin_guard),
 
     -- Students can only be customers; staff roles must be university employees
-    CONSTRAINT chk_role_user_type CHECK (role = 'customer' OR user_type IN ('faculty', 'staff'))
+    CONSTRAINT chk_role_user_type CHECK (role = 'customer' OR user_type IN ('faculty', 'staff')),
+    CONSTRAINT chk_monthly_limit CHECK (monthly_limit IS NULL OR monthly_limit >= 0)
 );
 
 -- ---------------------------------------------------------------------
@@ -139,15 +145,18 @@ CREATE TABLE Order_Details (
 -- Cash: Pending until the cashier collects it at pickup.
 -- Easypaisa / JazzCash: customer submits the transaction reference;
 --   Pending until a cashier verifies it. Choosing a method is NOT proof.
--- No Show: payment stays Pending = money owed; the customer cannot place
---   new orders until it is collected (checked in PlaceOrder).
+-- Account ("monthly bill"): Pending while the order is in progress,
+--   Billed when it is handed over = added to the customer's monthly bill.
+-- No Show: a still-Pending payment becomes Billed (trigger) - the food was
+--   made, so it is added to the monthly bill whatever the method.
 -- Cancelled / Rejected: Confirmed -> Refunded, Pending -> Void (trigger).
+-- Money owed = Billed payments - confirmed Account_Payments.
 -- ---------------------------------------------------------------------
 CREATE TABLE Payments (
     payment_id              INT AUTO_INCREMENT PRIMARY KEY,
     order_id                INT NOT NULL UNIQUE,
-    payment_method          ENUM('Cash', 'Easypaisa', 'JazzCash') NOT NULL,
-    payment_status          ENUM('Pending', 'Confirmed', 'Refunded', 'Void') NOT NULL DEFAULT 'Pending',
+    payment_method          ENUM('Cash', 'Easypaisa', 'JazzCash', 'Account') NOT NULL,
+    payment_status          ENUM('Pending', 'Confirmed', 'Billed', 'Refunded', 'Void') NOT NULL DEFAULT 'Pending',
     amount                  DECIMAL(10,2) NOT NULL,
     transaction_reference   VARCHAR(50) NULL,
     verified_by             INT NULL,               -- cashier/admin who confirmed it
@@ -157,13 +166,71 @@ CREATE TABLE Payments (
     CONSTRAINT fk_payment_order    FOREIGN KEY (order_id)    REFERENCES Orders(order_id),
     CONSTRAINT fk_payment_verifier FOREIGN KEY (verified_by) REFERENCES Users(user_id),
     CONSTRAINT chk_payment_amount CHECK (amount >= 0),
-    -- digital wallets need a reference, cash must not have one
+    -- digital wallets need a reference, cash and the monthly bill must not have one
     CONSTRAINT chk_payment_reference CHECK (
-        (payment_method = 'Cash' AND transaction_reference IS NULL) OR
-        (payment_method <> 'Cash' AND transaction_reference IS NOT NULL)
+        (payment_method IN ('Cash', 'Account') AND transaction_reference IS NULL) OR
+        (payment_method IN ('Easypaisa', 'JazzCash') AND transaction_reference IS NOT NULL)
     ),
     UNIQUE KEY uq_payment_reference (transaction_reference),
     INDEX idx_payment_status (payment_status)
+);
+
+-- ---------------------------------------------------------------------
+-- 6b. BILLING SETTINGS  (exactly one row; the manager can change it)
+-- A month's bill is due on due_day of the next month: October's bill is
+-- due by 10 November. From the 11th, a customer with any of it unpaid
+-- cannot order (checked in PlaceOrder) until they pay.
+-- ---------------------------------------------------------------------
+CREATE TABLE Billing_Settings (
+    setting_id              TINYINT PRIMARY KEY DEFAULT 1,
+    accounts_open           BOOLEAN NOT NULL DEFAULT TRUE,          -- "monthly bill" offered at checkout
+    due_day                 TINYINT NOT NULL DEFAULT 10,
+    default_monthly_limit   DECIMAL(10,2) NOT NULL DEFAULT 15000.00,
+    updated_by              INT NULL,
+    updated_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_settings_user FOREIGN KEY (updated_by) REFERENCES Users(user_id),
+    CONSTRAINT chk_settings_single_row CHECK (setting_id = 1),
+    CONSTRAINT chk_settings_due_day CHECK (due_day BETWEEN 1 AND 28),
+    CONSTRAINT chk_settings_limit CHECK (default_monthly_limit >= 0)
+);
+
+INSERT INTO Billing_Settings (setting_id) VALUES (1);
+
+-- ---------------------------------------------------------------------
+-- 6c. ACCOUNT PAYMENTS  (money paid towards a customer's monthly bill)
+-- Cash at the counter: recorded by the cashier, Confirmed at once.
+-- Easypaisa / JazzCash: either the customer submits the transaction ID
+--   online (Pending until a cashier checks the merchant app) or the
+--   cashier records one they have already checked (Confirmed).
+-- Waiver: the manager writes off an amount, with a reason.
+-- Payments are applied to the oldest charges first.
+-- ---------------------------------------------------------------------
+CREATE TABLE Account_Payments (
+    account_payment_id      INT AUTO_INCREMENT PRIMARY KEY,
+    user_id                 INT NOT NULL,                   -- whose bill
+    amount                  DECIMAL(10,2) NOT NULL,
+    method                  ENUM('Cash', 'Easypaisa', 'JazzCash', 'Waiver') NOT NULL,
+    status                  ENUM('Pending', 'Confirmed', 'Rejected') NOT NULL DEFAULT 'Pending',
+    transaction_reference   VARCHAR(50) NULL,
+    note                    VARCHAR(255) NULL,              -- waiver / rejection reason, cashier's note
+    submitted_by            INT NOT NULL,                   -- the customer (online) or the staff member
+    verified_by             INT NULL,
+    created_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    verified_at             DATETIME NULL,
+
+    CONSTRAINT fk_account_payment_user      FOREIGN KEY (user_id)      REFERENCES Users(user_id),
+    CONSTRAINT fk_account_payment_submitter FOREIGN KEY (submitted_by) REFERENCES Users(user_id),
+    CONSTRAINT fk_account_payment_verifier  FOREIGN KEY (verified_by)  REFERENCES Users(user_id),
+    CONSTRAINT chk_account_payment_amount CHECK (amount > 0),
+    CONSTRAINT chk_account_payment_reference CHECK (
+        (method IN ('Cash', 'Waiver') AND transaction_reference IS NULL) OR
+        (method IN ('Easypaisa', 'JazzCash') AND transaction_reference IS NOT NULL)
+    ),
+    CONSTRAINT chk_account_payment_waiver_reason CHECK (method <> 'Waiver' OR note IS NOT NULL),
+    UNIQUE KEY uq_account_payment_reference (transaction_reference),
+    INDEX idx_account_payment_user (user_id),
+    INDEX idx_account_payment_status (status)
 );
 
 -- ---------------------------------------------------------------------

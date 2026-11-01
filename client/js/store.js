@@ -61,6 +61,13 @@ function formatWhen(value) {
     return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + time;
 }
 
+// "10 Nov 2026" (a date from the server, e.g. a bill's due date)
+function formatDate(value) {
+    if (!value) return '—';
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(value + 'T00:00:00') : new Date(value);
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 function isToday(value) {
     return new Date(value).toDateString() === new Date().toDateString();
 }
@@ -107,6 +114,21 @@ async function getMenuItems() {
 // Item can be ordered only if the manager switched it on and it has stock
 function isInStock(item) {
     return item.available && item.stock > 0;
+}
+
+// ---------- Payments ----------
+// "Account" = added to the customer's monthly bill, paid at the end of the month
+const PAYMENT_LABELS = { Cash: 'Cash at the counter', Easypaisa: 'Easypaisa', JazzCash: 'JazzCash', Account: 'Monthly bill', Waiver: 'Waived by the manager' };
+const PAYMENT_STATUS_LABELS = { Pending: 'Not paid yet', Confirmed: 'Paid', Billed: 'On your monthly bill', Refunded: 'Refunded', Void: 'Not charged' };
+
+// Easypaisa / JazzCash: the customer sends a transaction ID the cashier must check
+function isWalletPayment(method) {
+    return method === 'Easypaisa' || method === 'JazzCash';
+}
+
+// The customer's monthly bill (Amount Payable)
+async function getMyAccount() {
+    return api('/account');
 }
 
 // ---------- Orders ----------
@@ -215,6 +237,26 @@ async function requireStaffLogin(...roles) {
         return null;
     }
     return user;
+}
+
+// Top bar of the staff screens (boards, receivable): links for this role + who is signed in
+const STAFF_NAV = [
+    { href: 'incoming.html', label: 'Incoming', icon: 'fa-inbox', roles: ['admin', 'cashier'] },
+    { href: 'kitchen.html', label: 'Kitchen', icon: 'fa-fire', roles: ['kitchen', 'admin', 'cashier'] },
+    { href: 'counter.html', label: 'Counter', icon: 'fa-cash-register', roles: ['admin', 'cashier'] },
+    { href: 'orders-management.html', label: 'All orders', icon: 'fa-list', roles: ['admin', 'cashier'] },
+    { href: 'receivables.html', label: 'Receivable', icon: 'fa-file-invoice-dollar', roles: ['admin', 'cashier'] },
+    { href: 'dashboard.html', label: 'Dashboard', icon: 'fa-chart-line', roles: ['admin'] }
+];
+
+function renderStaffBar(user, currentPage) {
+    document.getElementById('staffName').textContent = `${user.name} · ${user.role === 'admin' ? 'Manager' : user.role === 'kitchen' ? 'Kitchen' : 'Counter'}`;
+    document.getElementById('boardNav').innerHTML = STAFF_NAV
+        .filter(link => link.roles.includes(user.role))
+        .map(link => `<a href="${link.href}" class="${link.href === currentPage ? 'active' : ''}"
+                         ${link.href === currentPage ? 'aria-current="page"' : ''}>
+                         <i class="fas ${link.icon}"></i> ${link.label}</a>`)
+        .join('');
 }
 
 async function logout() {
